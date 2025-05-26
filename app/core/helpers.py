@@ -54,14 +54,7 @@ CURRENCY_COGS: Final[frozenset[str]] = frozenset({
 })
 
 
-def clean_interaction_kwargs(kwargs: dict[str, Any]) -> None:
-    # no files in interactions
-    kwargs.pop('file', None)
-    kwargs.pop('files', None)
-
-
 async def _into_interaction_response(interaction: TypedInteraction, kwargs: dict[str, Any]) -> None:
-    clean_interaction_kwargs(kwargs)
     kwargs.pop('reference', None)
 
     if kwargs.get('embed') and kwargs.get('embeds') is not None:
@@ -202,7 +195,6 @@ async def process_message(ctx: Context, payload: Any) -> discord.Message | None:
     interaction = getattr(ctx, 'interaction', None)
 
     if paginator:
-        clean_interaction_kwargs(kwargs)
         return await paginator.start(interaction=interaction, **kwargs)
 
     if interaction:
