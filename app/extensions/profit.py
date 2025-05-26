@@ -275,11 +275,9 @@ class Profit(Cog):
 
         return s[0].upper() + s[1:]
 
-    _SHORTCUT_CANDIDATES: list[str] = ['beg', 'search', 'hunt', 'trivia', 'fish']
+    _SHORTCUT_CANDIDATES: list[str] = ['beg', 'search', 'hunt', 'trivia', 'fish', 'dig']
     _COOLDOWN_ONLY_CANDIDATES: list[str] = ['hourly', 'daily', 'weekly']
     _TOOL_MAPPING: dict[Item | tuple[Item, ...], str] = {
-        Items.__pickaxes__: 'mine',
-        Items.__shovels__: 'dig',
         Items.axe: 'chop',
     }
 
