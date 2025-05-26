@@ -932,7 +932,7 @@ class Profit(Cog):
         await game.wait()
 
     @command(aliases={'shovel', 'di', 'mine', 'pickaxe', 'm'}, hybrid=True)
-    @simple_cooldown(1, 60)
+    @simple_cooldown(1, 180)
     @user_max_concurrency(1)
     async def dig(self, ctx: Context) -> CommandResponse:
         """Dig up items from the ground and sell them for profit!"""
