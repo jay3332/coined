@@ -192,6 +192,9 @@ async def process_message(ctx: Context, payload: Any) -> discord.Message | None:
         kwargs['view'].add_item(discord.ui.TextDisplay(kwargs['content']))
         del kwargs['content']
 
+    if 'files' in kwargs and kwargs.get('edit'):
+        kwargs['attachments'] = kwargs.pop('files')
+
     interaction = getattr(ctx, 'interaction', None)
 
     if paginator:
