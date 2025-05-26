@@ -1,6 +1,7 @@
 Join our support server and official community to get help, report bugs, and suggest features! We do plenty of giveaways, events, and announce updates there as well. {support_server}
 You can run {{/help commands}} to see a list of all commands and their usage.
 Hunt for pets and raise them for boosts and abilities! {{/hunt}}
+Discover new layers of the Earth and obtain rare ores and relics by digging! {{/dig}}
 Vote for Coined to get free crates! {{/vote}}
 Run {{/cooldowns remind}} to be reminded when a cooldown is over.
 View your cumulative multipliers with {{/multiplier}}.
