@@ -1,0 +1,3 @@
+ALTER TABLE users
+    ADD COLUMN IF NOT EXISTS backpack VARCHAR(64) NOT NULL DEFAULT 'standard_backpack',
+    ADD COLUMN IF NOT EXISTS unlocked_backpacks VARCHAR(64)[] NOT NULL DEFAULT '{}'::VARCHAR(64)[];

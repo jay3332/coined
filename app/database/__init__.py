@@ -16,6 +16,7 @@ import discord.utils
 from discord.utils import cached_property, format_dt
 
 from app.data.abilities import Ability, Abilities
+from app.data.backpacks import Backpack, Backpacks
 from app.data.items import CropMetadata, Item, Items, Reward
 from app.data.jobs import Job, Jobs
 from app.data.pets import Pet, Pets
@@ -1401,6 +1402,14 @@ class UserRecord(BaseRecord):
 
         return False
 
+    async def add_bank_space(
+        self, space: int, *, connection: asyncpg.Connection | None = None,
+    ) -> int:
+        """Adds bank space to the user, considering multipliers."""
+        added = round(space * self.bank_space_growth_multiplier)
+        await self.add(max_bank=added, connection=connection)
+        return added
+
     async def add_random_bank_space(
         self,
         minimum: int,
@@ -1412,9 +1421,10 @@ class UserRecord(BaseRecord):
         if random.random() > chance:
             return 0
 
-        amount = round(random.randint(minimum, maximum) * self.bank_space_growth_multiplier)
-        await self.add(max_bank=amount, connection=connection)
-        return amount
+        return await self.add_bank_space(
+            space=random.randint(minimum, maximum),
+            connection=connection,
+        )
 
     async def add_random_exp(
         self, minimum: int, maximum: int, *, chance: float = 1,
@@ -1690,6 +1700,21 @@ class UserRecord(BaseRecord):
     @property
     def cigarette_expiry(self) -> datetime.datetime:
         return self.data['cigarette_expiry']
+
+    @property
+    def equipped_backpack(self) -> Backpack:
+        return get_by_key(Backpacks, self.data['backpack'])
+
+    @property
+    def unlocked_backpacks(self) -> list[Backpack]:
+        out = [get_by_key(Backpacks, b) for b in self.data['unlocked_backpacks']]
+        if Backpacks.standard_backpack not in out:
+            out.append(Backpacks.standard_backpack)
+        return out
+
+    @property
+    def railgun_expiry(self) -> datetime.datetime | None:
+        return self.data.get('railgun_cooldown_expires_at')
 
     @property
     def inventory_manager(self) -> InventoryManager:

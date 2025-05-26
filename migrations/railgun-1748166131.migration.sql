@@ -1,0 +1,2 @@
+ALTER TABLE users
+    ADD COLUMN IF NOT EXISTS railgun_cooldown_expires_at TIMESTAMP WITH TIME ZONE DEFAULT NULL;

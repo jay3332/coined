@@ -20,7 +20,7 @@ from app.core import (
     Context,
     EDIT,
     HybridContext,
-    REPLY,
+    NO_EXTRA, REPLY,
     command,
     database_cooldown,
     lock_transactions,
@@ -34,11 +34,11 @@ from app.data.skills import RobberyTrainingButton
 from app.database import NotificationData, RobFailReason, UserRecord
 from app.extensions.misc import _get_retry_after
 from app.features.battles import PvEBattleView
+from app.features.digging import DiggingView
 from app.util.common import (
     expansion_list,
     humanize_list,
     image_url_from_emoji,
-    insert_random_u200b,
     progress_bar,
     weighted_choice,
 )
@@ -931,197 +931,21 @@ class Profit(Cog):
 
         await game.wait()
 
-    RARE_DIG_ITEMS = {
-        Items.hook_worm,
-        Items.poly_worm,
-        Items.ancient_relic,
-    }
-
-    DIG_PROMPTS = (
-        "dig dig dig",
-        "my shovel is about to break",
-        "must dig faster",
-        "probably dulled out my shovel",
-        "what must this be?",
-        "oh look, something shiny?",
-        "this must be something special",
-    )
-
-    @command(aliases={'shovel', 'di'}, hybrid=True)
-    @simple_cooldown(1, 30)
+    @command(aliases={'shovel', 'di', 'mine', 'pickaxe', 'm'}, hybrid=True)
+    @simple_cooldown(1, 60)
     @user_max_concurrency(1)
-    async def dig(self, ctx: Context):
+    async def dig(self, ctx: Context) -> CommandResponse:
         """Dig up items from the ground and sell them for profit!"""
-        record = await ctx.db.get_user_record(ctx.author.id)
-        inventory = await record.inventory_manager.wait()
 
-        try:
-            shovel = next(filter(inventory.cached.quantity_of, Items.__shovels__))
-        except StopIteration:
-            yield f'You need {Items.shovel.get_sentence_chunk(1)} to dig.', BAD_ARGUMENT
-            return
-
-        mapping = shovel.metadata.copy()
-        pets = await record.pet_manager.wait()
-        if hamster := pets.get_active_pet(Pets.hamster):
-            extra = 1.01 + hamster.level * 0.004
-            for item in self.RARE_DIG_ITEMS:
-                mapping[item] *= extra
-
-        items = random.choices(list(mapping), weights=list(mapping.values()), k=7)
-        items = {item: items.count(item) for item in set(items) if item is not None}
-
-        await record.add_random_exp(12, 18, chance=0.8, ctx=ctx)
-        await record.add_random_bank_space(10, 15, chance=0.6)
-
-        yield f'{Emojis.loading} Digging through the ground using your {shovel.name}...', REPLY
-
-        view = await self._get_command_shortcuts(ctx, record)
-        await asyncio.sleep(random.uniform(2., 4.))
-
-        if not len(items):
-            yield 'You dug up absolutely nothing. Lmao.', view, EDIT
-            return
-
-        if any(item in self.RARE_DIG_ITEMS for item in items):
-            message = random.choice(self.DIG_PROMPTS)
-
-            yield (
-                f'You found something out of the ordinary! Type `{insert_random_u200b(message)}` to dig it up before it breaks.',
-                EDIT,
-            )
-
-            try:
-                response = await ctx.bot.wait_for('message', check=lambda m: m.author == ctx.author and m.channel == ctx.channel, timeout=14)
-                initial = "You failed dig up the item"
-
-            except asyncio.TimeoutError:
-                response = ctx.message  # guaranteed that this wont equal the message
-                initial = "You couldn't type out your prompt in time"
-
-            if response.content.lower() != message:
-                await inventory.add_item(shovel, -1)
-
-                if random.random() < 0.15:
-                    await record.make_dead(reason='You were buried alive while digging.')
-
-                    yield (
-                        f'{initial}, and the mound of dirt you have dug up beforehand collapses in on you, '
-                        f'burying yourself alive. You suffocate to death.',
-                        view,
-                        REPLY,
-                    )
-                    return
-
-                yield (
-                    f'{initial}. You try your best to dig the item up, but your shovel suddenly snaps in half! Whoops.',
-                    view,
-                    REPLY,
-                )
-                return
+        view = DiggingView(ctx)
+        await view.prepare()
+        yield await view.session.generate_image(), view, REPLY, NO_EXTRA
+        await view.wait()
 
         async with ctx.db.acquire() as conn:
-            for item, count in items.items():
-                await inventory.add_item(item, count, connection=conn)
-
-        embed = discord.Embed(color=Colors.success, timestamp=ctx.now)
-
-        embed.add_field(name='You dug up:', value='\n'.join(f'{item.get_display_name(bold=True)} x{count}' for item, count in items.items()))
-        embed.set_author(name=f'Digging: {ctx.author}', icon_url=ctx.author.display_avatar)
-        embed.set_footer(text=f'Used {shovel.name}')
-
-        yield '', embed, view, EDIT
-
-    RARE_ORES = {
-        Items.gold,
-        Items.obsidian,
-        Items.emerald,
-        Items.diamond,
-    }
-
-    MINE_PROMPTS = (
-        "mine mine mine",
-        "my pickaxe is about to break",
-        "what a shiny ore",
-        "this must be something special",
-        "oh look, something shiny?",
-        "what must this be?",
-        "that looks like a cool ore",
-    )
-
-    @command(aliases={'pickaxe', 'm'}, hybrid=True)  # TODO: so much boilerplate within these commands, maybe make a common function for these?
-    @simple_cooldown(1, 30)
-    @user_max_concurrency(1)
-    async def mine(self, ctx: Context):
-        """Mine ores from deep below the ground and sell them for profit!"""
-        record = await ctx.db.get_user_record(ctx.author.id)
-        inventory = await record.inventory_manager.wait()
-
-        try:
-            pickaxe = next(filter(inventory.cached.quantity_of, Items.__pickaxes__))
-        except StopIteration:
-            yield f'You need {Items.pickaxe.get_sentence_chunk(1)} to mine.', BAD_ARGUMENT
-            return
-
-        mapping = pickaxe.metadata
-
-        items = random.choices(list(mapping), weights=list(mapping.values()), k=6)
-        items = {item: items.count(item) for item in set(items) if item is not None}
-
-        await record.add_random_exp(12, 18, chance=0.8, ctx=ctx)
-        await record.add_random_bank_space(10, 15, chance=0.6)
-
-        yield f'{Emojis.loading} Mining using your {pickaxe.name}...', REPLY
-
-        view = await self._get_command_shortcuts(ctx, record)
-        await asyncio.sleep(random.uniform(2., 4.))
-
-        if not len(items):
-            yield 'You mined absolutely nothing. Lmao.', view, EDIT
-            return
-
-        if any(item in self.RARE_ORES for item in items):
-            message = random.choice(self.MINE_PROMPTS)
-
-            yield (
-                f'Ooh, the ore you mined looks special! Type `{insert_random_u200b(message)}` to retrieve the ore.',
-                EDIT,
-            )
-
-            try:
-                response = await ctx.bot.wait_for('message', check=lambda m: m.author == ctx.author and m.channel == ctx.channel, timeout=14)
-                initial = "You failed mine the ore"
-
-            except asyncio.TimeoutError:
-                response = ctx.message  # guaranteed that this wont equal the message
-                initial = "You couldn't type out your prompt in time"
-
-            if response.content.lower() != message:
-                await inventory.add_item(pickaxe, -1)
-
-                if random.random() < 0.15:
-                    await record.make_dead(reason='Your pickaxe snapped back on you, and you died.')
-
-                    yield (
-                        f'{initial}. Your pickaxe snaps and the sharp part comes flying back at you, impaling your chest. '
-                        f'You died.', view, REPLY
-                    )
-                    return
-
-                yield f'{initial}, and your pickaxe snaps in half while trying to mine the ore.', view, REPLY
-                return
-
-        async with ctx.db.acquire() as conn:
-            for item, count in items.items():
-                await inventory.add_item(item, count, connection=conn)
-
-        embed = discord.Embed(color=Colors.success, timestamp=ctx.now)
-
-        embed.add_field(name='You mined:', value='\n'.join(f'{item.get_display_name(bold=True)} x{count}' for item, count in items.items()))
-        embed.set_author(name=f'Mining: {ctx.author}', icon_url=ctx.author.display_avatar)
-        embed.set_footer(text=f'Used {pickaxe.name}')
-
-        yield '', embed, view, EDIT
+            record = view.session.record
+            await record.add_exp(view.session.xp_earned, ctx=ctx, connection=conn)
+            await record.add_bank_space(view.session.bank_space_earned, connection=conn)
 
     ABUNDANCE_FOREST_WOOD_CHANCES = {
         None: 1,

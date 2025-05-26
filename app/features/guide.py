@@ -229,6 +229,7 @@ GUIDE_PAGES: dict[str, GuidePage] = {
         redirects={
             'Next Page': PageRedirect('earning-2', style=discord.ButtonStyle.success),
             'Work and Jobs': PageRedirect('work'),
+            'Digging & Mining': PageRedirect('digging'),
         },
     ),
     'earning-2': GuidePage(
@@ -237,6 +238,23 @@ GUIDE_PAGES: dict[str, GuidePage] = {
             'Diving': PageRedirect('diving'),
             'Browse Casino Commands': HelpRedirect('casino'),
         },
+    ),
+    'digging': GuidePage(
+        emoji='<:shovel:1376356818258759751>',
+        redirects={
+            'Next Page': PageRedirect('digging-2', style=discord.ButtonStyle.success),
+            'More ways to profit': PageRedirect('earning'),
+            'Begin Digging': CommandRedirect('dig'),
+        }
+    ),
+    'digging-2': GuidePage(
+        emoji='<:pickaxe:1376356818258759751>',
+        redirects={
+            'Crafting Items': PageRedirect('craft'),
+            'Pets': PageRedirect('pets'),
+            'More ways to profit': PageRedirect('earning'),
+            'Begin Digging': CommandRedirect('dig'),
+        }
     ),
     'levels': GuidePage(
         emoji='\u2728',
@@ -337,6 +355,7 @@ GUIDE_SELECT_OPTIONS: dict[str, tuple[str, str, set[str]]] = {
     'Coined Overview': ('index', 'An overview of Coined, which is the guide homepage.', {'index'}),
     'Getting Started': ('getting-started', 'Learn how to get started with Coined.', {'getting-started'}),
     'Earning Coins': ('earning', 'Learn how to earn coins.', {'earning', 'earning-2', 'stats-that-matter'}),
+    'Digging & Mining': ('digging', 'Learn about digging and mining.', {'digging', 'digging-2'}),
     'Levels and XP': ('levels', 'Learn more about how levels and experience work.', {'levels'}),
     'Items': ('items', 'Learn more about items and inventory.', {'items', 'inventory', 'craft'}),
     'Farming': ('farming', 'Learn more about crops and the farming system.', {'farming'}),

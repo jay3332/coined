@@ -78,6 +78,36 @@ class Recipes:
         },
     )
 
+    golden_shovel = Recipe(
+        key="golden_shovel",
+        name="Golden Shovel",
+        description=Items.golden_shovel.description,
+        emoji=Items.golden_shovel.emoji,
+        price=80_000,
+        ingredients={
+            Items.shovel: 5,
+            Items.gold: 3,
+        },
+        result={
+            Items.golden_shovel: 1,
+        },
+    )
+
+    diamond_shovel = Recipe(
+        key="diamond_shovel",
+        name="Diamond Shovel",
+        description=Items.diamond_shovel.description,
+        emoji=Items.diamond_shovel.emoji,
+        price=800_000,
+        ingredients={
+            Items.shovel: 10,
+            Items.diamond: 3,
+        },
+        result={
+            Items.diamond_shovel: 1,
+        },
+    )
+
     durable_pickaxe = Recipe(
         key="durable_pickaxe",
         name="Durable Pickaxe",

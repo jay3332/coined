@@ -25,6 +25,8 @@ from app.core import (
     user_max_concurrency,
 )
 from app.core.flags import Flags, store_true
+from app.core.helpers import check_transaction_lock, get_transaction_lock
+from app.data.backpacks import Backpack, Backpacks
 from app.data.items import Item, ItemRarity, ItemType, Items
 from app.data.pets import Pets
 from app.data.recipes import Recipe, Recipes
@@ -60,7 +62,8 @@ from app.util.converters import (
 )
 from app.util.pagination import ActiveRow, FieldBasedFormatter, Formatter, LineBasedFormatter, Paginator
 from app.util.structures import DottedDict, LockWithReason
-from app.util.views import CommandInvocableModal, ConfirmationView, ModalButton, StaticCommandButton, UserView
+from app.util.views import CommandInvocableModal, ConfirmationView, ModalButton, StaticCommandButton, UserLayoutView, \
+    UserView
 from config import Colors, Emojis
 
 if TYPE_CHECKING:
@@ -151,7 +154,7 @@ class RecipeSelect(discord.ui.Select['RecipeView']):
             row=0,
         )
 
-    async def callback(self, interaction: TypedInteraction) -> None:
+    async def callback(self, interaction: TypedInteraction) -> Any:
         try:
             recipe = get_by_key(Recipes, self.values[0])
         except (KeyError, IndexError):
@@ -470,6 +473,144 @@ class BankTransactionModal(CommandInvocableModal):
             await ctx.command.dispatch_error(ctx, exc)
         else:
             await self.invoke(ctx, amount=value)
+
+
+class EquipBackpack(discord.ui.Button['BackpacksView']):
+    def __init__(self, backpack: Backpack, container: BackpacksContainer) -> None:
+        super().__init__()
+        self.backpack: Backpack = backpack
+        self.container: BackpacksContainer = container
+
+    def update(self, *, equipped: bool) -> None:
+        if equipped:
+            self.label = 'Equipped!'
+            self.style = discord.ButtonStyle.secondary
+            self.disabled = True
+        else:
+            self.label = 'Equip'
+            self.style = discord.ButtonStyle.primary
+            self.disabled = False
+
+    async def callback(self, interaction: TypedInteraction) -> Any:
+        container: BackpacksContainer = self.container
+        record = container.record
+
+        if self.backpack not in record.unlocked_backpacks:
+            await interaction.response.send_message(
+                f'You do not own the **{self.backpack.name}** backpack.',
+                ephemeral=True,
+            )
+
+        current = record.equipped_backpack
+        self.update(equipped=True)
+        if btn := container._btn_mapping.get(current):
+            if isinstance(btn, EquipBackpack):
+                btn.update(equipped=False)
+
+        await record.update(backpack=self.backpack.key)
+        await interaction.response.edit_message(view=self.view)
+        return await interaction.followup.send(
+            f'Equipped **{self.backpack.display}**',
+            ephemeral=True,
+        )
+
+
+class UnlockBackpack(discord.ui.Button['BackpacksView']):
+    def __init__(self, backpack: Backpack, container: BackpacksContainer, **kwargs) -> None:
+        super().__init__(**kwargs)
+        self.backpack: Backpack = backpack
+        self.container: BackpacksContainer = container
+
+    async def callback(self, interaction: TypedInteraction) -> Any:
+        container: BackpacksContainer = self.container
+        record = container.record
+
+        if record.wallet < self.backpack.price:
+            return await interaction.response.send_message(
+                f'You do not have enough coins in your wallet to unlock **{self.backpack.name}**.',
+                ephemeral=True,
+            )
+
+        if self.backpack in record.unlocked_backpacks:
+            return await interaction.response.send_message('weird', ephemeral=True)
+
+        if not await check_transaction_lock(container.ctx):
+            return
+
+        if not await container.ctx.confirm(
+            f'Are you sure you want to unlock **{self.backpack.display}** '
+            f'for {Emojis.coin} **{self.backpack.price:,}**?',
+            delete_after=True,
+            interaction=interaction,
+        ):
+            return await interaction.followup.send('Cancelled.', ephemeral=True)
+
+        async with get_transaction_lock(container.ctx, update_jump_url=True):
+            updated = list(set(b.key for b in record.unlocked_backpacks) | {self.backpack.key})
+            async with container.ctx.db.acquire() as conn:
+                await record.add(wallet=-self.backpack.price, connection=conn)
+                await record.update(unlocked_backpacks=updated, connection=conn)
+
+            container.update()
+            await interaction.message.edit(view=self.view)
+            return await interaction.followup.send(
+                f'Unlocked **{self.backpack.display}** for {Emojis.coin} **{self.backpack.price:,}** coins.\n'
+                f'You now have {Emojis.coin} **{record.wallet:,}** coins left in your wallet.',
+                ephemeral=True,
+            )
+
+
+class BackpacksContainer(discord.ui.Container['BackpacksView']):
+    def __init__(self, parent: BackpacksView) -> None:
+        self.parent: BackpacksView = parent
+        self.record: UserRecord = parent.ctx.db.get_user_record(parent.ctx.author.id, fetch=False)
+
+        super().__init__(accent_color=Colors.primary)
+        self.update()
+
+    def update(self) -> None:
+        self.clear_items()
+        self.add_item(discord.ui.TextDisplay(f'## Backpack Shop'))
+        self._btn_mapping: dict[Backpack, discord.ui.Button] = {}
+
+        for backpack in walk_collection(Backpacks, Backpack, method=vars):
+            self.add_item(discord.ui.Separator()).add_item(self.render_backpack(backpack))
+
+    def render_backpack(self, backpack: Backpack) -> discord.ui.Section:
+        if backpack in self.record.unlocked_backpacks:
+            accessory = EquipBackpack(backpack, container=self)
+            accessory.update(equipped=backpack is self.record.equipped_backpack)
+        else:
+            accessory = UnlockBackpack(
+                backpack,
+                container=self,
+                label=f'Unlock ({backpack.price:,} coins)',
+                style=discord.ButtonStyle.success,
+                emoji=Emojis.coin,
+                disabled=self.record.wallet < backpack.price,
+            )
+        self._btn_mapping[backpack] = accessory
+        return discord.ui.Section(
+            f'### **{backpack.display}**\n-# {backpack.description}',
+            f'- **Price to Unlock:** {Emojis.coin} **{backpack.price:,}**\n'
+            f'- **Capacity:** {backpack.capacity:,} storage units',
+            accessory=accessory,
+        )
+
+    @property
+    def ctx(self) -> Context:
+        return self.parent.ctx
+
+
+class BackpacksView(UserLayoutView):
+    def __init__(self, ctx: Context) -> None:
+        super().__init__(ctx.author, timeout=60)
+        self.ctx: Context = ctx
+        inventory_mention = ctx.bot.tree.get_app_command('inventory').mention
+        self.add_item(discord.ui.TextDisplay(
+            f'**Looking for your permanent inventory?** Use {inventory_mention} instead.')
+        )
+        self.add_item(BackpacksContainer(self))
 
 
 class SellBulkFlags(Flags):
@@ -976,6 +1117,13 @@ class Transactions(Cog):
             for item in query_collection_many(Items, Item, current)
         ]
 
+    @command(aliases={'bp', 'backpack'}, hybrid=True)
+    @simple_cooldown(3, 6)
+    async def backpacks(self, ctx: Context) -> CommandResponse:
+        """View the backpack shop and manage your backpacks."""
+        await ctx.db.get_user_record(ctx.author.id)
+        return BackpacksView(ctx), REPLY
+
     @command(aliases={'rep', 'fix', 'repairshop'}, hybrid=True)
     @simple_cooldown(3, 6)
     @user_max_concurrency(1)
@@ -1258,6 +1406,7 @@ class Transactions(Cog):
         '- Your wallet, bank, and bank space will be wiped.\n'
         '- Your inventory will be wiped, except for:\n'
         '  - Any collectibles,\n'
+        '  - Any backpacks,\n'
         '  - Any crates, and\n'
         '  - Any items of **Mythic** or **Unobtainable** rarity.\n'
         '- All crops will be wiped on your farm, however you will keep all claimed land.'
@@ -1427,7 +1576,7 @@ class PrestigeView(UserView):
         self.prestige.emoji = self.emoji = Emojis.get_prestige_emoji(next_prestige)
 
     @discord.ui.button(label='Prestige!', style=discord.ButtonStyle.primary)
-    async def prestige(self, interaction: TypedInteraction, _button: discord.ui.Button) -> None:
+    async def prestige(self, interaction: TypedInteraction, _button: discord.ui.Button) -> Any:
         lock = self.ctx.bot.transaction_locks.setdefault(self.ctx.author.id, LockWithReason())
         if lock.locked():
             reason = f' ({lock.reason})' if lock.reason else ''
@@ -1440,7 +1589,7 @@ class PrestigeView(UserView):
         async with lock:
             await self._prestige(interaction, _button)
 
-    async def _prestige(self, interaction: TypedInteraction, _button: discord.ui.Button) -> None:
+    async def _prestige(self, interaction: TypedInteraction, _button: discord.ui.Button) -> Any:
         crate = Items.mythic_crate if self.next_prestige % 5 == 0 else Items.legendary_crate
         receive = (
             f'- {Items.banknote.get_sentence_chunk(self.next_prestige)},\n'

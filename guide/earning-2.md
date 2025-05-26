@@ -17,10 +17,6 @@ Commands that are listed here are *high-risk* commands that can be used to make 
 
 Commands that are listed here are unlocked once you obtain and own a tool in your inventory.
 > For more information on items and your inventory, see *Items* at the bottom of this message.
-- {{/mine}} – Mine for precious ores, which can be sold for coins.
-  - Requires a **<:pickaxe:939598952284692520> Pickaxe**
-- {{/dig}} – Dig underground to find worms and relics, which can be sold for coins.
-  - Requires a **<:shovel:938575120157515786> Shovel**
 - {{/chop}} – Chop down trees for wood, which can be sold for coins.
   - Requires an **<:axe:937880907946283058> Axe**
 

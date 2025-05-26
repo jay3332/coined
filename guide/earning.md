@@ -28,4 +28,12 @@ risky areas at the reward of more possible coins.
 - {{/work start}} – Find a job and start working for a steady salary. See *Work and Jobs* for more information on \
 working and the job system.
 
+## <:shovel:1376356818258759751> Digging and Mining System
+
+- Coined features a sophisticated **digging minigame system** that allows you to simulate digging deep underground for \
+coins and items.
+- Use the {{/dig}} command to start digging. See *Digging and Mining* for more information on Coined's \
+digging and mining system.
+- Explore different biomes, equip power-ups, and discover deep layers of the Earth!
+
 *View the next page for more profit commands...*

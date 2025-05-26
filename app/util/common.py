@@ -5,6 +5,7 @@ import datetime
 import math
 import random
 import re
+from bisect import bisect
 from difflib import SequenceMatcher
 from functools import wraps
 from typing import (
@@ -33,6 +34,7 @@ if TYPE_CHECKING:
 
     Q = TypeVar('Q')
     T = TypeVar('T')
+    Ty = TypeVar('Ty', bound=type)
     P = ParamSpec('P')
     R = TypeVar('R')
     K = TypeVar('K')
@@ -131,8 +133,8 @@ class BaseCurve:
             self._sums.append(self._sums[n - 1] + self(n))
         return self._sums[level]
 
-    def _compute_level_linear(self, exp: int) -> tuple[int, int, int]:
-        level = 0
+    def _compute_level_linear(self, exp: int, *, start: int = 0) -> tuple[int, int, int]:
+        level = start
         while self.total_exp_for(level) <= exp:
             level += 1
 
@@ -144,19 +146,13 @@ class BaseCurve:
         # Note: computing with a binary search assumes curve is ALWAYS increasing
         if exp < self._total_exp_linear_threshold:
             return self._compute_level_linear(exp)
+        if exp > self._sums[-1]:
+            return self._compute_level_linear(exp, start=len(self._sums) - 1)
 
-        low, high = 0, len(self._sums) - 1
-
-        while low <= high:
-            mid = (low + high) // 2
-            if self.total_exp_for(mid) <= exp:
-                low = mid + 1
-            else:
-                high = mid - 1
-
-        exp -= self.total_exp_for(low - 1)
-        requirement = self.requirement_for(low)
-        return low, exp, requirement
+        level = bisect(self._sums, exp)
+        exp -= self.total_exp_for(level - 1)
+        requirement = self.requirement_for(level)
+        return level, exp, requirement
 
 
 class CubicCurve(BaseCurve):
@@ -211,11 +207,16 @@ def image_url_from_emoji(emoji: str | discord.PartialEmoji) -> str:
         return f'https://cdn.discordapp.com/emojis/{id}.{extension}?v=1'
     else:
         code = '-'.join(format(ord(c), 'x') for c in emoji if c != '\ufe0f')
-        return f'https://twemoji.maxcdn.com/v/latest/72x72/{code}.png'
+        return f'https://twitter.github.io/twemoji/v/latest/72x72/{code}.png'
 
 
-def walk_collection(collection: type, cls: Type[Q]) -> Iterator[Q]:
-    for attr in dir(collection):
+def walk_collection(
+    collection: Ty,
+    cls: Type[Q],
+    *,
+    method: Callable[[Ty], Iterable[str]] = dir,
+) -> Iterator[Q]:
+    for attr in method(collection):
         if attr.startswith('_'):
             continue
 
@@ -464,13 +465,18 @@ def format_line(ctx: Context, line: str) -> str:
     return COMMAND_SUBSTITUTION.sub(sub, line)
 
 
-def weighted_choice(choices: Mapping[T, int | float], /) -> T:
+def weighted_choices(choices: Mapping[T, int | float], /, k: int) -> list[T]:
     """Returns a random choice from a dictionary of choices with weights."""
     return random.choices(
         list(choices.keys()),
         weights=list(choices.values()),
-        k=1,
-    )[0]  # type: ignore[no-any-return, no-any-unpack]  # We know the return type is T
+        k=k,
+    )  # type: ignore[no-any-return, no-any-unpack]  # We know the return type is T
+
+
+def weighted_choice(choices: Mapping[T, int | float], /) -> T:
+    """Returns a random choice from a dictionary of choices with weights."""
+    return weighted_choices(choices, k=1)[0]  # type: ignore[no-any-return, no-any-unpack]  # We know the return type is T
 
 
 def adjust_weight(weights: MutableMapping[T, int | float], /, item: T, *, k: float) -> float:

@@ -420,7 +420,7 @@ class Stats(Cog):
             timeout=120,
         )
 
-    @command(aliases={"inv", "backpack", "items"}, hybrid=True, with_app_command=False)
+    @command(aliases={"inv", "items"}, hybrid=True, with_app_command=False)
     @simple_cooldown(1, 6)
     async def inventory(self, ctx: Context, *, user: CaseInsensitiveMemberConverter | None = None):
         """View your inventory, or optionally, someone elses."""

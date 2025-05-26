@@ -227,7 +227,7 @@ def easy_command_callback(func: callable) -> callable:
     return wrapper
 
 
-def _get_lock(ctx: Context, *, update_jump_url: bool = False) -> LockWithReason:
+def get_transaction_lock(ctx: Context, *, update_jump_url: bool = False) -> LockWithReason:
     lock = ctx.bot.transaction_locks.setdefault(ctx.author.id, LockWithReason())
     if update_jump_url:
         lock.jump_url = ctx.message.jump_url
@@ -240,31 +240,30 @@ class ActiveTransactionLock(commands.BadArgument):
         self.lock = lock
 
 
+async def check_transaction_lock(ctx: Context) -> bool:
+    lock = get_transaction_lock(ctx)
+
+    if lock.locked():
+        raise ActiveTransactionLock(lock)
+
+    return True
+
+
 def lock_transactions(func: callable) -> callable:
-    async def check(ctx: Context) -> bool:
-        lock = _get_lock(ctx)
-
-        if lock.locked():
-            raise ActiveTransactionLock(lock)
-
-        return True
-
-    # yikes
-
     if inspect.isasyncgenfunction(func):
         @wraps(func)
         async def wrapper(cog: Cog, ctx: Context, /, *args, **kwargs) -> Any:
-            async with _get_lock(ctx, update_jump_url=True):
+            async with get_transaction_lock(ctx, update_jump_url=True):
                 async for item in func(cog, ctx, *args, **kwargs):
                     yield item
 
     else:
         @wraps(func)
         async def wrapper(cog: Cog, ctx: Context, /, *args, **kwargs) -> Any:
-            async with _get_lock(ctx, update_jump_url=True):
+            async with get_transaction_lock(ctx, update_jump_url=True):
                 return await func(cog, ctx, *args, **kwargs)
 
-    return commands.check(check)(wrapper)
+    return commands.check(check_transaction_lock)(wrapper)
 
 
 def _installation_wrapper(deco):

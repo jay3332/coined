@@ -56,16 +56,17 @@ class ItemType(Enum):
     crop          = 8
     harvest       = 9
     net           = 10
-    miscellaneous = 11
+    dirt          = 11
+    miscellaneous = 12
 
 
 class ItemRarity(Enum):
-    common = 0
-    uncommon = 1
-    rare = 2
-    epic = 3
-    legendary = 4
-    mythic = 5
+    common       = 0
+    uncommon     = 1
+    rare         = 2
+    epic         = 3
+    legendary    = 4
+    mythic       = 5
     unobtainable = 6
 
     def __lt__(self, other: Any):
@@ -117,8 +118,12 @@ class NetMetadata(NamedTuple):
 class FishingPoleMetadata(NamedTuple):
     weights: dict[Item, float]
     iterations: int
-    
-    
+
+
+class ToolMetadata(NamedTuple):
+    strength: int
+
+
 def fish_weights(
     local_ns: dict[str, Any], *, exclude: Collection[Item] = (), **rarity_weights: float,
 ) -> dict[Item, float]:
@@ -207,6 +212,9 @@ class Item(Generic[T]):
     rarity: ItemRarity = ItemRarity.common
     metadata: T = None
     energy: int | None = None
+
+    hp: int = 0  # hit points for digging
+    volume: int = 1  # volume in storage units
 
     durability: int | None = None
     repair_rate: int | None = None  # cost per damage to repair
@@ -754,12 +762,67 @@ class Items:
         await ctx.invoke(ctx.bot.get_command('chop'))  # type: ignore
 
     dirt = Item(
-        type=ItemType.miscellaneous,
+        type=ItemType.dirt,
         key='dirt',
         name='Dirt',
         emoji='<:dirt:939297925283086396>',
         description='A chunk of dirt that was dug up from the ground.',
         sell=10,
+        hp=1,
+    )
+
+    clay = Item(
+        type=ItemType.dirt,
+        key='clay',
+        name='Clay',
+        emoji='<:clay:1375921854589702257>',
+        description='A dense chunk of clay, dug up from the ground.',
+        sell=20,
+        hp=3,
+    )
+
+    gravel = Item(
+        type=ItemType.dirt,
+        key='gravel',
+        name='Gravel',
+        emoji='<:gravel:1375928383984373800>',
+        description='Little chunks of rock dug up from the ground.',
+        rarity=ItemRarity.uncommon,
+        sell=30,
+        hp=5,
+    )
+
+    limestone = Item(
+        type=ItemType.dirt,
+        key='limestone',
+        name='Limestone',
+        emoji='<:limestone:1376340511597527090>',
+        description='Light-colored rock made from calcium carbonate',
+        rarity=ItemRarity.uncommon,
+        sell=40,
+        hp=8,
+    )
+
+    granite = Item(
+        type=ItemType.dirt,
+        key='granite',
+        name='Granite',
+        emoji='<:granite:1376340486817845248>',
+        description='A hard, light-colored igneous rock consisting almost entirely of quartz and feldspar.',
+        sell=50,
+        rarity=ItemRarity.rare,
+        hp=12,
+    )
+
+    magma = Item(
+        type=ItemType.dirt,
+        key='magma',
+        name='Magma',
+        emoji='<:magma:1376344509570355200>',
+        description='Found at the deepest layer of the backyard biome.',
+        rarity=ItemRarity.epic,
+        sell=100,
+        hp=20,
     )
 
     worm = Worm(
@@ -769,6 +832,7 @@ class Items:
         description='The common worm. You can sell these or craft Fish Bait from these.',
         sell=100,
         energy=3,
+        hp=3,
     )
 
     gummy_worm = Worm(
@@ -778,6 +842,8 @@ class Items:
         description='A gummy worm - at least it\'s better than a normal worm.',
         sell=250,
         energy=6,
+        hp=5,
+        volume=2,
     )
 
     earthworm = Worm(
@@ -787,6 +853,8 @@ class Items:
         description='Quite literally an "earth" worm.',
         sell=500,
         energy=12,
+        hp=10,
+        volume=2,
     )
 
     hook_worm = Worm(
@@ -797,6 +865,8 @@ class Items:
         sell=1000,
         rarity=ItemRarity.uncommon,
         energy=24,
+        hp=15,
+        volume=2,
     )
 
     poly_worm = Worm(
@@ -807,6 +877,8 @@ class Items:
         sell=1500,
         rarity=ItemRarity.rare,
         energy=36,
+        hp=20,
+        volume=2,
     )
 
     ancient_relic = Item(
@@ -817,46 +889,73 @@ class Items:
         description='An ancient relic originally from an unknown cave. It\'s probably somewhere in the ground, I don\'t know.',
         sell=25000,
         rarity=ItemRarity.mythic,
+        hp=30,
+        volume=3,
     )
 
-    shovel: Item[dict[Item, float]] = Item(
+    shovel: Item[ToolMetadata] = Item(
         type=ItemType.tool,
         key='shovel',
         name='Shovel',
-        emoji='<:shovel:938575120157515786>',
-        description='Dig up items from the ground using the `.dig` command. You can sell these items for profit.',
+        emoji='<:shovel:1376356818258759751>',
+        description='Dig up dirt faster when digging (`.dig`). You can sell these items for profit.',
         price=10000,
         buyable=True,
-        metadata={
-            None: 1,
-            dirt: 0.6,
-            worm: 0.25,
-            gummy_worm: 0.08,
-            earthworm: 0.03,
-            hook_worm: 0.0075,
-            poly_worm: 0.0025,
-            ancient_relic: 0.00005,  # 0.005%
-        },
+        metadata=ToolMetadata(strength=2),
     )
 
-    durable_shovel: Item[dict[Item, float]] = Item(
+    durable_shovel: Item[ToolMetadata] = Item(
         type=ItemType.tool,
         key='durable_shovel',
         name='Durable Shovel',
-        emoji='<:durable_shovel:939333623100874783>',
-        description='A more durable version of a shovel. Tends to give more higher rarity items. This item cannot be directly bought - instead it must be crafted.',
+        emoji='<:durable_shovel:1376356847052914758>',
+        description=(
+            'A shovel reinforced with durable materials. Slightly more powerful than a standard shovel. '
+            'This item cannot be directly bought; instead, it must be crafted.'
+        ),
         sell=30000,
         rarity=ItemRarity.rare,
-        metadata={
-            None: 1,
-            dirt: 0.5,
-            worm: 0.3,
-            gummy_worm: 0.2,
-            earthworm: 0.07,
-            hook_worm: 0.02,
-            poly_worm: 0.007,
-            ancient_relic: 0.0001,  # 0.01%
-        },
+        metadata=ToolMetadata(strength=3),
+    )
+
+    golden_shovel: Item[ToolMetadata] = Item(
+        type=ItemType.tool,
+        key='golden_shovel',
+        name='Golden Shovel',
+        emoji='<:golden_shovel:1376356874244587540>',
+        description=(
+            'A shiny, all-powerful golden shovel. This item can only be crafted.'
+        ),
+        sell=100000,
+        rarity=ItemRarity.epic,
+        metadata=ToolMetadata(strength=5),
+    )
+
+    diamond_shovel: Item[ToolMetadata] = Item(
+        type=ItemType.tool,
+        key='diamond_shovel',
+        name='Diamond Shovel',
+        emoji='<:diamond_shovel:1376356892774760508>',
+        description=(
+            'Made with the finest diamond on Earth, this shovel is exceptionally durable and strong. '
+            'Perfect for breaking through tough terrain with ease. This item can only be crafted.'
+        ),
+        sell=250000,
+        rarity=ItemRarity.legendary,
+        metadata=ToolMetadata(strength=7),
+    )
+
+    plasma_shovel: Item[ToolMetadata] = Item(
+        type=ItemType.tool,
+        key='plasma_shovel',
+        name='Plasma Shovel',
+        emoji='<:plasma_shovel:1376356902425989160>',
+        description=(
+            'A shovel energized with plasma, ionizing the ground as it digs. Who knows where these come from?'
+        ),
+        sell=750000,
+        rarity=ItemRarity.mythic,
+        metadata=ToolMetadata(strength=10),
     )
 
     @shovel.to_use
@@ -864,7 +963,10 @@ class Items:
     async def use_shovel(self, ctx: Context, _) -> None:
         await ctx.invoke(ctx.bot.get_command('dig'))  # type: ignore
 
-    __shovels__: tuple[Item[dict[Item, float]], ...] = (
+    __shovels__: tuple[Item[ToolMetadata], ...] = (
+        plasma_shovel,
+        diamond_shovel,
+        golden_shovel,
         durable_shovel,
         shovel,
     )
@@ -1231,6 +1333,7 @@ class Items:
         emoji='<:iron:939598222408712202>',
         description='A common metal mined from the ground.',
         sell=60,
+        hp=2,
     )
 
     copper = Ore(
@@ -1240,6 +1343,7 @@ class Items:
         emoji='<:copper:939598531432448080>',
         description='A soft metal with high thermal and electrial conductivity.',
         sell=200,
+        hp=4,
     )
 
     silver = Ore(
@@ -1250,6 +1354,7 @@ class Items:
         description='A shiny, lustrous metal with the highest thermal and electrical conductivity of any metal.',
         rarity=ItemRarity.uncommon,
         sell=400,
+        hp=6,
     )
 
     gold = Ore(
@@ -1260,6 +1365,7 @@ class Items:
         description='A bright, dense, and popular metal.',
         rarity=ItemRarity.rare,
         sell=900,
+        hp=8,
     )
 
     obsidian = Ore(
@@ -1270,6 +1376,8 @@ class Items:
         description='A volcanic, glassy mineral formed from the rapid cooling of felsic lava.',
         rarity=ItemRarity.rare,
         sell=1250,
+        hp=10,
+        volume=2,
     )
 
     emerald = Ore(
@@ -1280,6 +1388,8 @@ class Items:
         description='A valuable green gemstone.',
         rarity=ItemRarity.epic,
         sell=2000,
+        hp=12,
+        volume=2,
     )
 
     diamond = Ore(
@@ -1290,26 +1400,19 @@ class Items:
         description='A super-hard mineral known for being extremely expensive.',
         rarity=ItemRarity.legendary,
         sell=5000,
+        hp=20,
+        volume=3,
     )
 
-    pickaxe: Item[dict[Item, float]] = Item(
+    pickaxe: Item[ToolMetadata] = Item(
         type=ItemType.tool,
         key='pickaxe',
         name='Pickaxe',
         emoji='<:pickaxe:939598952284692520>',
-        description='Mine ores using the `.mine` command. You can sell these ores for profit, and use some in crafting.',
+        description='Allows you to mine ores while digging (`.dig`). You can sell these ores for profit, and use some in crafting.',
         price=10000,
         buyable=True,
-        metadata={
-            None: 1,
-            iron: 0.5,
-            copper: 0.17,
-            silver: 0.075,
-            gold: 0.015,
-            obsidian: 0.005,
-            emerald: 0.0015,
-            diamond: 0.0003,
-        },
+        metadata=ToolMetadata(strength=1),
     )
 
     durable_pickaxe = Item(
@@ -1320,16 +1423,7 @@ class Items:
         description='A durable, re-enforced pickaxe. Able to find rare ores more commonly than a normal pickaxe. This item must be crafted.',
         rarity=ItemRarity.rare,
         sell=30000,
-        metadata={
-            None: 0.95,
-            iron: 0.5,
-            copper: 0.25,
-            silver: 0.1,
-            gold: 0.03,
-            obsidian: 0.0075,
-            emerald: 0.003,
-            diamond: 0.00075,
-        },
+        metadata=ToolMetadata(strength=3),
     )
 
     diamond_pickaxe = Item(
@@ -1340,16 +1434,7 @@ class Items:
         description='A pickaxe made of pure diamond. This pickaxe is better than both the normal and durable pickaxes. This item must be crafted.',
         rarity=ItemRarity.legendary,
         sell=200000,
-        metadata={
-            None: 0.9,
-            iron: 0.5,
-            copper: 0.3,
-            silver: 0.15,
-            gold: 0.05,
-            obsidian: 0.015,
-            emerald: 0.0075,
-            diamond: 0.002,
-        },
+        metadata=ToolMetadata(strength=5),
     )
 
     @pickaxe.to_use
@@ -1358,10 +1443,24 @@ class Items:
     async def use_pickaxe(self, ctx: Context, _) -> None:
         await ctx.invoke(ctx.bot.get_command('mine'))  # type: ignore
 
-    __pickaxes__: tuple[Item[dict[Item, float]]] = (
+    __pickaxes__: tuple[Item[ToolMetadata]] = (
         diamond_pickaxe,
         durable_pickaxe,
         pickaxe,
+    )
+
+    railgun = Item(
+        type=ItemType.tool,
+        key='railgun',
+        name='Railgun',
+        emoji='<:railgun:1376071981719359518>',
+        description=(
+            'Obliterate the ground when digging! Every hour, you can use this to instantly deal 30 HP to the dirt '
+            'below you while digging, cascading to deeper layers until all 50 HP is used.'
+        ),
+        rarity=ItemRarity.rare,
+        price=200000,
+        buyable=True,
     )
 
     common_crate = Crate(
