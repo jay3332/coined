@@ -18,7 +18,7 @@ from app.core import Cog, Context, command, group, simple_cooldown
 from app.core.helpers import BAD_ARGUMENT, EDIT, REPLY, cooldown_message, user_max_concurrency
 from app.database import PetManager, PetRecord
 from app.data.items import Item, ItemType, Items, NetMetadata
-from app.data.pets import Pet, Pets
+from app.data.pets import DEFAULT_PET_WEIGHTS, Pet, PetRarity, Pets
 from app.extensions.profit import Profit
 from app.util import converters
 from app.util.common import (
@@ -29,6 +29,7 @@ from app.util.common import (
     query_collection,
     query_collection_many,
     walk_collection,
+    weighted_choice,
 )
 from app.util.converters import get_amount, try_query_item
 from app.util.pagination import LineBasedFormatter, Paginator
@@ -119,22 +120,6 @@ class PetsCog(Cog, name='Pets'):
             min,  # If Discord is performing well today, (as if it ever does), a lower bound can be specified
         )
 
-    HUNT_DEFAULT_WEIGHTS = {
-        None: 1.2,
-        Pets.dog: 0.8,
-        Pets.cat: 0.8,
-        Pets.bird: 0.8,
-        Pets.bunny: 0.8,
-        Pets.hamster: 0.8,
-        Pets.mouse: 0.8,
-        Pets.bee: 0.05,
-        Pets.duck: 0.05,
-        Pets.tortoise: 0.05,
-        Pets.cow: 0.004,
-        Pets.panda: 0.004,
-        Pets.fox: 0.002,
-    }
-
     @command(aliases={'catch', 'hu', 'ct', 'h'}, hybrid=True)
     @simple_cooldown(1, 90)
     @cooldown_message("There aren't unlimited animals to hunt!")
@@ -153,15 +138,26 @@ class PetsCog(Cog, name='Pets'):
         try:
             net = max(available, key=lambda item: item.metadata.priority)
             extra = f'with your {net.get_display_name(bold=True)}'
-            weights = net.metadata.weights
+            weights = net.metadata.weights.copy()
             tip = ''
         except ValueError:
-            weights = self.HUNT_DEFAULT_WEIGHTS
+            weights = DEFAULT_PET_WEIGHTS.copy()
+
+        rare_multiplier = 1.0
+        pets = await record.pet_manager.wait()
+        if jaguar := pets.get_active_pet(Pets.jaguar):
+            rare_multiplier += 0.01 + jaguar.level * 0.005
+        if tiger := pets.get_active_pet(Pets.tiger):
+            rare_multiplier += 0.02 + tiger.level * 0.01
+
+        for key in weights:
+            if key and key.rarity >= PetRarity.rare:
+                weights[key] *= rare_multiplier
 
         yield f'{Emojis.loading} Hunting for pets {extra}...{tip}', REPLY
         cont = await Profit._get_command_shortcuts(ctx, record)
 
-        pet = random.choices(list(weights), weights=list(weights.values()))[0]
+        pet = weighted_choice(weights)
         await asyncio.sleep(random.uniform(2, 4))
 
         if pet is None:

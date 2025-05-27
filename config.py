@@ -82,6 +82,7 @@ class DatabaseConfig:
 
 class Emojis:
     coin = '<:c:896432147152400394>'
+    coined = '<:coined:1376426825168850974>'
     loading = '<a:l:825862907626913842>'
     space = '<:s:940748421701185637>'
     arrow = '<:a:831333449562062908>'

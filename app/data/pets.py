@@ -1,10 +1,15 @@
+from __future__ import annotations
+
+from collections import defaultdict
 from enum import Enum
+from functools import total_ordering
 from typing import Callable, NamedTuple
 
-from app.util.common import BaseCurve, ExponentialCurve
+from app.util.common import BaseCurve, ExponentialCurve, walk_collection
 from config import Emojis
 
 
+@total_ordering
 class PetRarity(Enum):
     common = 0
     uncommon = 1
@@ -17,6 +22,35 @@ class PetRarity(Enum):
     @property
     def emoji(self) -> str:
         return getattr(Emojis.Rarity, self.name)
+
+    def __lt__(self, other: PetRarity) -> bool:
+        if not isinstance(other, PetRarity):
+            return NotImplemented
+        return self.value < other.value
+
+    def __eq__(self, other: PetRarity) -> bool:
+        if not isinstance(other, PetRarity):
+            return NotImplemented
+        return self.value == other.value
+
+    def __hash__(self) -> int:
+        return hash(self.value)
+
+
+def generate_pet_weights(*, none: float = 0.0, **rarity_weights: float) -> dict[Pet, float]:
+    groups = defaultdict(list)
+    for pet in walk_collection(Pets, Pet):
+        if pet.rarity.name not in rarity_weights:
+            continue
+        groups[pet.rarity].append(pet)
+
+    weights = {
+        pet: rarity_weights[rarity.name] / len(pets)
+        for rarity, pets in groups.items()
+        for pet in pets
+    }
+    weights[None] = none
+    return weights
 
 
 class Pet(NamedTuple):
@@ -115,7 +149,7 @@ class Pets:
         energy_per_minute=0.12,
         max_energy=100,
         benefit=lambda level: (
-            f'- +{1 + level * 0.4:g}% weight on finding rarer items when digging\n'
+            f'- +{2 + level * 0.2:g}% more coins from digging\n'
             f'- +{0.5 + level * 0.1:g}% money back when buying items'
         ),
     )
@@ -180,6 +214,21 @@ class Pets:
         )
     )
 
+    weasel = Pet(
+        name='Weasel',
+        key='weasel',
+        emoji='<:weasel:1376726983836438588>',
+        rarity=PetRarity.uncommon,
+        description='Small and slippery, the weasel can sneak through tough spots.',
+        energy_per_minute=0.1,
+        max_energy=300,
+        benefit=lambda level: (
+            f'- +{2 + level * 0.5:g}% coins from search and crime\n'
+            f'- -{1 + level * 0.5:g}% chance to get caught when committing crimes\n'
+            f'- +{1 + level * 0.5:g}% global coin multiplier'
+        )
+    )
+
     cow = Pet(
         name='Cow',
         key='cow',
@@ -209,8 +258,20 @@ class Pets:
             f'- +{2 + level}% global coin multiplier\n'
             f'- +{2 + level * 0.5:g}% chance to find rarer wood when chopping trees'
         ),
-        abilities=lambda level: (
-            f'- Produce bamboo (1 per hour) with `.bamboo` ({Emojis.bolt} 100)'
+    )
+
+    armadillo = Pet(
+        name='Armadillo',
+        key='armadillo',
+        emoji='<:armadillo:1376727000873566228>',
+        rarity=PetRarity.rare,
+        description='Boasts a tough and sturdy shell, making it a formidable defender.',
+        energy_per_minute=0.1,
+        max_energy=300,
+        benefit=lambda level: (
+            f'- +{1 + level} stamina when digging and diving\n'
+            f'- +{2 + level * 0.5:g}% chance to find rarer items when searching\n'
+            f'- +{2 + level * 0.6:g}% global XP multiplier'
         )
     )
 
@@ -221,7 +282,7 @@ class Pets:
         rarity=PetRarity.epic,
         description='A small to medium-sized omnivorous mammal.',
         energy_per_minute=0.1,
-        max_energy=400,
+        max_energy=350,
         benefit=lambda level: (
             f'- +{5 + level:g}% global coin multiplier\n'
             f'- +{2 + level:g}% global bank space multiplier\n'
@@ -231,3 +292,46 @@ class Pets:
             f'- Produce berries (1 per hour) with `.berries` ({Emojis.bolt} 200)'
         )
     )
+
+    jaguar = Pet(
+        name='Jaguar',
+        key='jaguar',
+        emoji='<:jaguar:1376727015591510067>',
+        rarity=PetRarity.epic,
+        description='A fierce jungle predator that strikes swiftly and efficiently.',
+        energy_per_minute=0.2,
+        max_energy=500,
+        benefit=lambda level: (
+            f'- +{5 + level:g}% global coin multiplier\n'
+            f'- +{3 + level:g}% chance to find rarer wood when chopping trees\n'
+            f'- +{1 + level * 0.5:g}% weight on catching rarer pets when hunting\n'
+            f'- +{5 + level:g}% more HP dealt during digging, diving, and combat'
+        ),
+    )
+
+    tiger = Pet(
+        name='Tiger',
+        key='tiger',
+        emoji='<:tiger:1376727023820472330>',
+        rarity=PetRarity.legendary,
+        description='Majestic and powerful, the tiger is a symbol of dominance and strength.',
+        energy_per_minute=0.5,
+        max_energy=800,
+        benefit=lambda level: (
+            f'- +{8 + level * 1.5:g}% global coin multiplier\n'
+            f'- +{10 + level * 2:g}% more HP dealt during digging, diving, and combat\n'
+            f'- +{2 + level:g}% weight on catching rarer pets when hunting\n'
+            f'- +{2 + level * 2} stamina when digging and diving'
+        )
+    )
+
+
+DEFAULT_PET_WEIGHTS: dict[Pet, float] = generate_pet_weights(
+    none=20,
+    common=68,
+    uncommon=7,
+    rare=4,
+    epic=0.8,
+    legendary=0.18,
+    mythic=0.02,
+)

@@ -17,7 +17,14 @@ from app import Bot
 from app.core import BAD_ARGUMENT, Cog, Context, HybridContext, NO_EXTRA, REPLY, command, group, simple_cooldown
 from app.core.flags import Flags, flag, store_true
 from app.data.items import ItemType, Items
-from app.database import InventoryManager, Multiplier, UserHistoryEntry, UserRecord
+from app.database import (
+    InventoryManager,
+    Multiplier,
+    NotificationData,
+    NotificationsManager,
+    UserHistoryEntry,
+    UserRecord,
+)
 from app.extensions.transactions import query_item_type
 from app.util.common import converter, cutoff, humanize_duration, image_url_from_emoji, progress_bar
 from app.util.converters import CaseInsensitiveMemberConverter, IntervalConverter
@@ -497,12 +504,18 @@ class Stats(Cog):
 
         await record.update(unread_notifications=0)
 
+        newline = '\n'
         fields = [{
             'name': (
                 f'{idx}. {notification.data.emoji} **{notification.data.title}** \u2014 '
                 f'{discord.utils.format_dt(notification.created_at, "R")}'
             ),
-            'value': cutoff(notification.data.describe(ctx.bot)),
+            'value': (
+                f'{notification.data.describe(ctx.bot).split(newline)[1].removeprefix("-# ")}\n'
+                f'-# Run `{ctx.clean_prefix}notifications view {idx}` for the changelog'
+                if isinstance(notification.data, NotificationData.BotUpdate)
+                else cutoff(notification.data.describe(ctx.bot))
+            ),
             'inline': False,
         } for idx, notification in enumerate(notifications.cached, start=1)]
 
@@ -537,7 +550,13 @@ class Stats(Cog):
             color=notification.data.color, description=notification.data.describe(ctx.bot), timestamp=ctx.now
         )
         embed.set_author(name=notification.data.title, icon_url=ctx.author.display_avatar)
-        embed.set_thumbnail(url=image_url_from_emoji(notification.data.emoji))
+        if isinstance(notification.data, NotificationData.BotUpdate):
+            if notification.data.image_path:
+                embed.set_image(
+                    url=NotificationsManager.CHANGELOG_IMAGES_BASE_URL + '/' + notification.data.image_path
+                )
+        else:
+            embed.set_thumbnail(url=image_url_from_emoji(notification.data.emoji))
 
         fmt = lambda f: discord.utils.format_dt(notification.created_at, f)
         embed.add_field(name='Created', value=f'{fmt("R")} ({fmt("f")})')

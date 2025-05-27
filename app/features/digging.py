@@ -17,7 +17,8 @@ from PIL import Image, ImageDraw
 
 from app.core import Context
 from app.data.backpacks import Backpack
-from app.database import InventoryManager, UserRecord
+from app.data.pets import Pets
+from app.database import InventoryManager, PetManager, UserRecord
 from app.data.biomes import Biome, Biomes
 from app.data.items import ItemType, Items, Item, ToolMetadata
 from app.util.common import executor_function, humanize_duration, image_url_from_emoji, progress_bar, weighted_choice
@@ -33,7 +34,7 @@ class Cell:
     coins: int
     item: Item | None
     dirt_index: int
-    hp: int = 0
+    hp: float = 0
 
 
 class NavigationRow(ui.ActionRow['DiggingView']):
@@ -83,7 +84,7 @@ class TargetActionRow(ui.ActionRow['DiggingView']):
         cell = session.target_cell
 
         tool = session.pickaxe if cell.item and cell.item.type is ItemType.ore else session.shovel
-        session.target_cell.hp -= tool.metadata.strength if tool else 1
+        session.target_cell.hp -= (tool.metadata.strength if tool else 1) * session.hp_multiplier
         session.stamina -= 1
 
         if session.target_cell.hp <= 0:
@@ -185,7 +186,7 @@ class DiggingContainer(ui.Container['DiggingView']):
         if cell.hp > 0 and cell.item is not None:
             s = 's' if cell.item.volume > 1 else ''
             self._target_info.add_item(
-                f'{Emojis.hp} {progress_bar(cell.hp / cell.item.hp)} {cell.hp:,}/{cell.item.hp:,}\n'
+                f'{Emojis.hp} {progress_bar(cell.hp / cell.item.hp)} {cell.hp:,g}/{cell.item.hp:,}\n'
                 f'-# Occupies {cell.item.volume:,} storage unit{s}'
             )
 
@@ -445,6 +446,7 @@ class DiggingSession:
         """Prepares the digging session by ensuring dirt and avatar images are cached."""
         self.record: UserRecord = await self.ctx.fetch_author_record()
         self.inventory: InventoryManager = await self.record.inventory_manager.wait()
+        self.pets: PetManager = await self.record.pet_manager.wait()
 
         self.backpack: Backpack = self.record.equipped_backpack
         self.shovel: Item[ToolMetadata] | None = next(
@@ -454,8 +456,21 @@ class DiggingSession:
             filter(self.inventory.cached.quantity_of, Items.__pickaxes__), None
         )
 
-        self.stamina: int = 100  # TODO: unified stamina system
-        self.max_stamina = self.stamina
+        self.coin_multiplier: float = 1.0
+        self.hp_multiplier: float = 1.0
+        self.max_stamina: int = 100
+
+        if hamster := self.pets.get_active_pet(Pets.hamster):
+            self.coin_multiplier += 0.02 + hamster.level * 0.002
+        if armadillo := self.pets.get_active_pet(Pets.armadillo):
+            self.max_stamina += armadillo.level + 1
+        if jaguar := self.pets.get_active_pet(Pets.jaguar):
+            self.hp_multiplier += 0.05 + jaguar.level * 0.01
+        if tiger := self.pets.get_active_pet(Pets.tiger):
+            self.max_stamina += tiger.level * 2 + 2
+            self.hp_multiplier += 0.1 + tiger.level * 0.02
+
+        self.stamina: int = self.max_stamina  # TODO: unified stamina system
 
         fp = await self.fetch_bytes(self.ctx.author.display_avatar.with_size(64).with_format('png').url)
         self.avatar_image: Image.Image = await self.open_sized(fp, (self.OVERLAY_WIDTH, self.OVERLAY_WIDTH))
@@ -502,7 +517,7 @@ class DiggingSession:
             idx = random.randrange(0, self.GEN_IMAGES_PER_DIRT)
             item = weighted_choice(layer.items)
             if item is None:
-                coins = round(random.uniform(12 * y, 24 * y))
+                coins = round(random.uniform(10 * y, 20 * y) * self.coin_multiplier)
                 base[pos] = Cell(coins=coins, item=None, dirt_index=idx)
             else:
                 base[pos] = Cell(coins=0, item=item, dirt_index=idx, hp=item.hp)

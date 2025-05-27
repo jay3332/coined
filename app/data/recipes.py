@@ -138,6 +138,21 @@ class Recipes:
         },
     )
 
+    golden_net = Recipe(
+        key="golden_net",
+        name="Golden Net",
+        description=Items.golden_net.description,
+        emoji=Items.golden_net.emoji,
+        price=80_000,
+        ingredients={
+            Items.net: 5,
+            Items.gold: 3,
+        },
+        result={
+            Items.golden_net: 1,
+        },
+    )
+
     fish_bait = Recipe(
         key="fish_bait",
         name="Fish Bait",

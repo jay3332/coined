@@ -683,9 +683,10 @@ class Profit(Cog):
         pets = await record.pet_manager.wait()
         if dog := pets.get_active_pet(Pets.dog):
             accumulated += 0.01 + dog.level * 0.004
-
         if mouse := pets.get_active_pet(Pets.mouse):
             accumulated += 0.01 + mouse.level * 0.004
+        if armadillo := pets.get_active_pet(Pets.armadillo):
+            accumulated += 0.02 + armadillo.level * 0.005
 
         weights[None] *= 1 - accumulated
         cont = await self._get_command_shortcuts(ctx, record)
@@ -709,9 +710,13 @@ class Profit(Cog):
             return
 
         gain = random.randint(choice.minimum, choice.maximum)
+        gain_multiplier = 1.0
         if cow := pets.get_active_pet(Pets.cow):
-            gain += gain * (0.02 + cow.level * 0.005)
+            gain_multiplier += 0.02 + cow.level * 0.005
+        if weasel := pets.get_active_pet(Pets.weasel):
+            gain_multiplier += 0.02 + weasel.level * 0.005
 
+        gain *= gain_multiplier
         async with ctx.db.acquire() as conn:
             profit = await record.add_coins(gain, connection=conn)
             message = f'{Emojis.coin} **{profit:,}**'
@@ -861,8 +866,13 @@ class Profit(Cog):
         embed.set_thumbnail(url=choice.image)
 
         cont = await self._get_command_shortcuts(ctx, record)
+        pets = await record.pet_manager.wait()
 
-        if random.random() > choice.success_chance:
+        chance_multiplier = 1.0
+        if weasel := pets.get_active_pet(Pets.weasel):
+            chance_multiplier += 0.01 + weasel.level * 0.005
+
+        if random.random() > choice.success_chance * chance_multiplier:
             embed.colour = Colors.error
 
             if random.random() < choice.death_chance_if_fail:
@@ -880,10 +890,15 @@ class Profit(Cog):
             yield embed, cont, REPLY
             return
 
-        pets = await record.pet_manager.wait()
         gain = random.randint(choice.minimum, choice.maximum)
+        gain_multiplier = 1.0
+
         if cow := pets.get_active_pet(Pets.cow):
-            gain += gain * (0.02 + cow.level * 0.005)
+            gain_multiplier += 0.02 + cow.level * 0.005
+        if weasel := pets.get_active_pet(Pets.weasel):
+            gain_multiplier += 0.02 + weasel.level * 0.005
+
+        gain *= gain_multiplier
 
         async with ctx.db.acquire() as conn:
             profit = await record.add_coins(gain, connection=conn)
@@ -995,6 +1010,8 @@ class Profit(Cog):
 
         if panda := pets.get_active_pet(Pets.panda):
             extra_weight += 0.02 + panda.level * 0.005
+        if jaguar := pets.get_active_pet(Pets.jaguar):
+            extra_weight += 0.03 + jaguar.level * 0.01
 
         mapping[Items.redwood] *= extra_weight
         mapping[Items.blackwood] *= extra_weight

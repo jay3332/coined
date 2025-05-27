@@ -500,6 +500,25 @@ class NotificationData:
                 f'Your **{get_by_key(Items, self.item).display_name}** has been repaired! It has been returned to your inventory.'
             )
 
+    class BotUpdate(NamedTuple):
+        changelog_path: str
+        image_path: str | None = None
+
+        type = 11
+        title = 'Coined got an update!'
+        color = Colors.success
+        emoji = Emojis.coined
+
+        def describe(self, bot: Bot) -> str:
+            if not hasattr(bot, '_changelogs'):
+                setattr(bot, '_changelogs', {})
+
+            if self.changelog_path not in bot._changelogs:  # type: ignore
+                with open(f'assets/changelogs/{self.changelog_path}', 'r') as fp:
+                    bot._changelogs[self.changelog_path] = fp.read()  # type: ignore
+
+            return bot._changelogs[self.changelog_path]  # type: ignore
+
     @classmethod
     def from_record(cls, record: asyncpg.Record) -> _NotificationData:
         type_ = record['type']
@@ -549,6 +568,20 @@ class NotificationsManager:
 
         self.cached = [Notification.from_record(record) for record in records]
 
+    CHANGELOG_IMAGES_BASE_URL = 'https://github.com/jay3332/coined/blob/main/assets/changelogs'
+
+    def get_notification_embed(self, notification: Notification) -> discord.Embed:
+        base = discord.Embed(
+            color=notification.data.color, description=notification.data.describe(self._record.db.bot),
+            timestamp=notification.created_at,
+        ).set_author(
+            name=notification.data.title, icon_url=image_url_from_emoji(notification.data.emoji),
+        )
+        if isinstance(notification.data, NotificationData.BotUpdate) and notification.data.image_path:
+            url = f'{self.CHANGELOG_IMAGES_BASE_URL}/{notification.data.image_path}?raw=true'
+            base.set_image(url=url)
+        return base
+
     async def _dispatch_dm_notification(self, notification: Notification) -> bool:
         bot = self._record.db.bot
         await bot.wait_until_ready()
@@ -557,12 +590,7 @@ class NotificationsManager:
             dm_channel = await bot.create_dm(discord.Object(self._record.user_id))
             await dm_channel.send(
                 f'\N{BELL} **{notification.data.title}**',
-                embed=discord.Embed(
-                    color=notification.data.color, description=notification.data.describe(bot),
-                    timestamp=notification.created_at,
-                ).set_author(
-                    name=notification.data.title, icon_url=image_url_from_emoji(notification.data.emoji),
-                ),
+                embed=self.get_notification_embed(notification),
             )
         except discord.DiscordException:
             return False
@@ -1551,6 +1579,10 @@ class UserRecord(BaseRecord):
             level = tortoise.level
             yield Multiplier(0.02 + level * 0.005, f'{Pets.tortoise.display} (Level {level})')
 
+        if armadillo := pets.get_active_pet(Pets.armadillo):
+            level = armadillo.level
+            yield Multiplier(0.02 + level * 0.006, f'{Pets.armadillo.display} (Level {level})')
+
         if ctx is not None and ctx.guild is not None:
             if sum(not m.bot for m in ctx.guild.members) > 50:
                 yield Multiplier(0.25, 'Large Server', is_global=False)
@@ -1585,6 +1617,18 @@ class UserRecord(BaseRecord):
         if fox := pets.get_active_pet(Pets.fox):
             level = fox.level
             yield Multiplier(0.05 + level * 0.01, f'{Pets.fox.display} (Level {level})')
+
+        if weasel := pets.get_active_pet(Pets.weasel):
+            level = weasel.level
+            yield Multiplier(0.01 + level * 0.005, f'{Pets.weasel.display} (Level {level})')
+
+        if jaguar := pets.get_active_pet(Pets.jaguar):
+            level = jaguar.level
+            yield Multiplier(0.05 + level * 0.01, f'{Pets.jaguar.display} (Level {level})')
+
+        if tiger := pets.get_active_pet(Pets.tiger):
+            level = tiger.level
+            yield Multiplier(0.08 + level * 0.015, f'{Pets.tiger.display} (Level {level})')
 
     @property
     def coin_multiplier(self) -> float:

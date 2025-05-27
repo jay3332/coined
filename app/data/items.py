@@ -25,7 +25,7 @@ from typing import (
 from discord.ext.commands import BadArgument
 from discord.utils import format_dt
 
-from app.data.pets import Pet, Pets
+from app.data.pets import Pet, Pets, generate_pet_weights
 from app.util.common import get_by_key, humanize_duration, ordinal, pluralize
 from app.util.structures import DottedDict
 from config import Emojis
@@ -1456,7 +1456,7 @@ class Items:
         emoji='<:railgun:1376071981719359518>',
         description=(
             'Obliterate the ground when digging! Every hour, you can use this to instantly deal 30 HP to the dirt '
-            'below you while digging, cascading to deeper layers until all 50 HP is used.'
+            'below you while digging, cascading to deeper layers until all 30 HP is used.'
         ),
         rarity=ItemRarity.rare,
         price=200000,
@@ -1665,27 +1665,45 @@ class Items:
     net = Net(
         key='net',
         name='Net',
-        emoji='<:net:1137070560753496104>',
+        emoji='<:net:1376754285806882816>',
         description='A net used to catch better pets using the `.hunt` command.',
         price=10000,
         buyable=True,
         metadata=NetMetadata(
-            weights={
-                None: 1.1,
-                Pets.dog: 0.9,
-                Pets.cat: 0.9,
-                Pets.bird: 0.9,
-                Pets.bunny: 0.9,
-                Pets.hamster: 0.9,
-                Pets.mouse: 0.9,
-                Pets.bee: 0.3,
-                Pets.tortoise: 0.3,
-                Pets.duck: 0.3,
-                Pets.cow: 0.1,
-                Pets.panda: 0.1,
-                Pets.fox: 0.03,
-            },
+            weights=generate_pet_weights(
+                none=12,
+                common=67,
+                uncommon=12,
+                rare=6,
+                epic=2,
+                legendary=0.8,
+                mythic=0.2,
+            ),
             priority=0,
+        ),
+    )
+
+    golden_net = Net(
+        key='golden_net',
+        name='Golden Net',
+        emoji='<:golden_net:1376754300440678481>',
+        description=(
+            'A net made of pure gold. It has a higher chance of catching rarer pets. '
+            'This item must be crafted.'
+        ),
+        rarity=ItemRarity.rare,
+        price=30000,
+        metadata=NetMetadata(
+            weights=generate_pet_weights(
+                none=10,
+                common=62,
+                uncommon=17,
+                rare=7,
+                epic=2.5,
+                legendary=1.1,
+                mythic=0.4,
+            ),
+            priority=1,
         ),
     )
 
