@@ -553,7 +553,7 @@ class Stats(Cog):
         if isinstance(notification.data, NotificationData.BotUpdate):
             if notification.data.image_path:
                 embed.set_image(
-                    url=NotificationsManager.CHANGELOG_IMAGES_BASE_URL + '/' + notification.data.image_path
+                    url=f'{NotificationsManager.CHANGELOG_IMAGES_BASE_URL}/{notification.data.image_path}?raw=true'
                 )
         else:
             embed.set_thumbnail(url=image_url_from_emoji(notification.data.emoji))
