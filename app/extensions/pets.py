@@ -273,7 +273,7 @@ class PetsCog(Cog, name='Pets'):
             value=(
                 f'Name: **{pet.display}**\n'
                 f'Query Key: `{pet.key}`\n'
-                f'Rarity: **{pet.rarity.name.title()}**\n'
+                f'Rarity: **{pet.rarity.name.title()}** {pet.rarity.emoji}\n'
                 f'Energy Usage: {Emojis.bolt} **{pet.energy_per_minute:,}/minute**'
             ),
         )
