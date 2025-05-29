@@ -153,6 +153,7 @@ class DiggingContainer(ui.Container['DiggingView']):
         self._header: ui.Section = ui.Section(accessory=ui.Thumbnail(
             media=self.ctx.author.display_avatar.with_size(64).url
         ))
+        self._header_items_display = ui.TextDisplay('')
         self._header_row = HeaderRow(parent=self)
         self._navigation_row: NavigationRow = NavigationRow()
         self._target_info: ui.Section | None = ui.Section(accessory=MISSING)
@@ -180,10 +181,10 @@ class DiggingContainer(ui.Container['DiggingView']):
 
         entries = list(session.collected_items.items())
         condensed = '\n'.join(
-            ' '.join(f'{item.emoji} x{quantity:,}' for item, quantity in entries[i:i + 6])
-            for i in range(0, len(entries), 6)
+            '-# ' + ' '.join(f'{item.emoji} x{quantity:,}' for item, quantity in entries[i:i + 5])
+            for i in range(0, len(entries), 5)
         )
-        condensed = f'\n-# {condensed}' if condensed else ''
+        condensed = f'\n{condensed}' if condensed else ''
         for item in (
             f'## {self.ctx.author.display_name}\'s Digging Session',
             f'{Emojis.bolt} {stamina_pbar} {session.stamina:,}/{session.max_stamina:,}',
