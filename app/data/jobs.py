@@ -450,12 +450,12 @@ class SlidingGameButton(discord.ui.Button['SlidingGame']):
         self.style = discord.ButtonStyle.primary if self.value is not None else discord.ButtonStyle.secondary
         empty_index = self.parent.board.index(None)
 
-        on_row = self.index // self.parent.width == empty_index // self.parent.width
+        on_row = self.index // self.parent._width == empty_index // self.parent._width
         has_empty_neighbor = self.value is not None and (
             self.index - 1 == empty_index and on_row
             or self.index + 1 == empty_index and on_row
-            or self.index - self.parent.width == empty_index
-            or self.index + self.parent.width == empty_index
+            or self.index - self.parent._width == empty_index
+            or self.index + self.parent._width == empty_index
         )
         # disable if not neighbors with empty cell
         self.disabled = not has_empty_neighbor
@@ -481,7 +481,7 @@ class SlidingGame(UserView):
     def __init__(self, ctx: Context, *, width: int = 3, height: int = 3, easy: bool = False) -> None:
         super().__init__(ctx.author, timeout=60)
         self.ctx = ctx
-        self.width = width
+        self._width = width
         self.winner: bool = False
 
         self.board: list[int | None] = list(range(1, width * height))
