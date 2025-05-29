@@ -274,7 +274,7 @@ class PetsCog(Cog, name='Pets'):
                 f'Name: **{pet.display}**\n'
                 f'Query Key: `{pet.key}`\n'
                 f'Rarity: **{pet.rarity.name.title()}** {pet.rarity.emoji}\n'
-                f'Energy Usage: {Emojis.bolt} **{pet.energy_per_minute * 60:,}/hour**'
+                f'Energy Usage: {Emojis.bolt} **{pet.energy_per_minute * 60:,.1f}/hour**'
             ),
         )
         level = 0 if entry is None else entry.level
