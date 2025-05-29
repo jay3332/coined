@@ -107,12 +107,53 @@ class TargetActionRow(ui.ActionRow['DiggingView']):
         await itx.response.edit_message(view=self.view, attachments=attachments)
 
 
+class HeaderRow(ui.ActionRow['DiggingView']):
+    def __init__(self, *, parent: DiggingContainer) -> None:
+        self.parent: DiggingContainer = parent
+        super().__init__()
+
+    def update(self) -> None:
+        self.show_collected_coins.label = format(self.parent.session.collected_coins, ',')
+        self.show_collected_items.emoji = self.parent.session.backpack.emoji
+        self.show_collected_items.label = f'{sum(self.parent.session.collected_items.values())} items'
+        self.show_collected_items.disabled = not self.parent.session.collected_items
+
+        if self.view and self.view.is_finished():
+            self.show_collected_coins.disabled = True
+            self.show_collected_items.disabled = True
+
+    @ui.button(style=ButtonStyle.secondary, emoji=Emojis.coin)
+    async def show_collected_coins(self, itx: TypedInteraction, _) -> None:
+        base = self.parent.session.collected_coins
+        multiplier = self.parent.session.record.coin_multiplier
+        multipliers_mention = self.parent.ctx.bot.tree.get_app_command('multiplier').mention
+        extra = '' if multiplier <= 1 else (
+            f'\n{Emojis.Expansion.standalone} You will receive {Emojis.coin} **{round(base * multiplier):,}** because '
+            f'you have a **+{multiplier - 1:.1%} coin multiplier** ({multipliers_mention})'
+        )
+
+        await itx.response.send_message(
+            content=f'You have collected {Emojis.coin} **{base:,}**' + extra,
+            ephemeral=True,
+        )
+
+    @ui.button(style=ButtonStyle.secondary)
+    async def show_collected_items(self, itx: TypedInteraction, _) -> None:
+        display = self.parent.session.collected_display
+        display = f'### You have collected:\n{display}' if display else 'No items collected yet.'
+        await itx.response.send_message(
+            content=display + f'\n-# Using **{self.parent.session.backpack.display}**',
+            ephemeral=True,
+        )
+
+
 class DiggingContainer(ui.Container['DiggingView']):
     def __init__(self, parent: DiggingView) -> None:
         self.parent: DiggingView = parent
         self._header: ui.Section = ui.Section(accessory=ui.Thumbnail(
             media=self.ctx.author.display_avatar.with_size(64).url
         ))
+        self._header_row = HeaderRow(parent=self)
         self._navigation_row: NavigationRow = NavigationRow()
         self._target_info: ui.Section | None = ui.Section(accessory=MISSING)
         self._target_row: TargetActionRow = TargetActionRow()
@@ -136,13 +177,22 @@ class DiggingContainer(ui.Container['DiggingView']):
             items_collected += '\n'
 
         self._header.clear_items()
+
+        entries = list(session.collected_items.items())
+        condensed = '\n'.join(
+            ' '.join(f'{item.emoji} x{quantity:,}' for item, quantity in entries[i:i + 6])
+            for i in range(0, len(entries), 6)
+        )
+        condensed = f'\n-# {condensed}' if condensed else ''
         for item in (
             f'## {self.ctx.author.display_name}\'s Digging Session',
             f'{Emojis.bolt} {stamina_pbar} {session.stamina:,}/{session.max_stamina:,}',
-            f'{session.backpack.emoji} {backpack_pbar} {session.backpack_occupied:,}/{session.backpack.capacity:,}\n'
-            f'{items_collected}-# {session.backpack.name}',
+            f'{session.backpack.emoji} {backpack_pbar} {session.backpack_occupied:,}/{session.backpack.capacity:,}'
+            + condensed,
         ):
             self._header.add_item(item)
+
+        self._header_row.update()
 
     def update_navigation_row(self) -> None:
         row = self._navigation_row
@@ -228,7 +278,7 @@ class DiggingContainer(ui.Container['DiggingView']):
         self.clear_items()
         self.update_header()
 
-        self.add_item(self._header).add_item(ui.Separator())
+        self.add_item(self._header).add_item(self._header_row).add_item(ui.Separator())
         self.add_item(ui.MediaGallery(MediaGalleryItem(media='attachment://digging.png')))
 
         s = '' if self.session.y == 0 else 's'
@@ -285,7 +335,7 @@ class DiggingActionRow(ui.ActionRow['DiggingView']):
         display = self.session.collected_display
         await itx.followup.send(
             content=(
-                f'## Successful digging session\nYou earned:\n{display}'
+                f'## Successful digging session\n### You earned:\n{display}'
                 if display else 'You surfaced empty-handed.'
             ) + f'\n-# Session lasted for {humanize_duration(utcnow() - self.session.ctx.now, depth=2)}',
             ephemeral=True,
