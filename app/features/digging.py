@@ -90,6 +90,8 @@ class TargetActionRow(ui.ActionRow['DiggingView']):
         if session.target_cell.hp <= 0:
             if session.target is DiggingSession.Target.down:
                 session.move()
+                while session.target_cell is None:
+                    session.move()
             else:
                 session.collect_target()
             self.view.container.update()
@@ -185,8 +187,9 @@ class DiggingContainer(ui.Container['DiggingView']):
             self._target_info.add_item('## ' + f'{cell.item.name} {cell.item.rarity.emoji}')
         if cell.hp > 0 and cell.item is not None:
             s = 's' if cell.item.volume > 1 else ''
+            formatted = f'{cell.hp:.1f}'.removesuffix('.0')
             self._target_info.add_item(
-                f'{Emojis.hp} {progress_bar(cell.hp / cell.item.hp)} {cell.hp:,g}/{cell.item.hp:,}\n'
+                f'{Emojis.hp} {progress_bar(cell.hp / cell.item.hp)} {formatted}/{cell.item.hp:,}\n'
                 f'-# Occupies {cell.item.volume:,} storage unit{s}'
             )
 
@@ -250,18 +253,16 @@ class DiggingContainer(ui.Container['DiggingView']):
             elapsed = utcnow() - self.ctx.now
             self.add_item(ui.TextDisplay(f'-# \N{STOPWATCH}\ufe0f {humanize_duration(elapsed)}'))
 
-        self.view.update_row()
+        self.view.action_row.update()
 
 
-class SurfaceButton(ui.Button['DiggingView']):
-    def __init__(self) -> None:
-        super().__init__(label='Surface', style=ButtonStyle.secondary, emoji='\u23eb')
-
+class DiggingActionRow(ui.ActionRow['DiggingView']):
     @property
     def session(self) -> DiggingSession:
         return self.view.session
 
-    async def callback(self, itx: TypedInteraction):
+    @ui.button(label='Surface', style=ButtonStyle.secondary, emoji='\u23eb')
+    async def surface(self, itx: TypedInteraction, _btn) -> None:
         self.view.stop()
         self.view.remove_item(self)
         self.view.container.update()
@@ -290,16 +291,8 @@ class SurfaceButton(ui.Button['DiggingView']):
             ephemeral=True,
         )
 
-
-class RailgunButton(ui.Button['DiggingView']):
-    def __init__(self) -> None:
-        super().__init__(label='Use Railgun', style=ButtonStyle.secondary, emoji=Items.railgun.emoji, disabled=True)
-
-    @property
-    def session(self) -> DiggingSession:
-        return self.view.session
-
-    async def callback(self, itx: TypedInteraction):
+    @ui.button(label='Use Railgun', style=ButtonStyle.secondary, emoji=Items.railgun.emoji)
+    async def railgun(self, itx: TypedInteraction, _btn: ui.Button):
         if self.session.inventory.cached.quantity_of(Items.railgun) < 1:
             return await itx.response.send_message('Cooked', ephemeral=True)
         if self.session.record.railgun_expiry and utcnow() < self.session.record.railgun_expiry:
@@ -309,12 +302,56 @@ class RailgunButton(ui.Button['DiggingView']):
         added_coins, added_items = self.session.cascading_dig(30)  # TODO: upgradable railgun
         content = (
             f'## Used {Items.railgun.display_name}\n'
-            f'You collected:\n{self.session.get_collected_display(coins=added_coins, items=added_items)}'
+            f'### You collected:\n{self.session.get_collected_display(coins=added_coins, items=added_items)}'
         )
 
         self.view.container.update()
         await itx.response.edit_message(view=self.view, attachments=[await self.view.generate_image()])
         await itx.followup.send(content=content, ephemeral=True)
+
+    @ui.button(style=ButtonStyle.secondary, emoji=Items.dynamite.emoji)
+    async def dynamite(self, itx: TypedInteraction, _btn: ui.Button):
+        inventory = self.session.inventory
+        if inventory.cached.quantity_of(Items.dynamite) <= 0:
+            return await itx.response.send_message('You have no dynamite left!', ephemeral=True)
+
+        await inventory.add_item(Items.dynamite, -1)
+        total_hp, added_coins, added_items = self.session.surrounding_dig(10)  # TODO: upgradable dynamite
+        content = (
+            f'## Used {Items.dynamite.display_name}\n'
+            f'{Emojis.Expansion.standalone} \U0001f4a5  Dealt **{round(total_hp)} HP** to surrounding blocks!\n'
+            f'### You collected:\n{self.session.get_collected_display(coins=added_coins, items=added_items)}'
+        )
+
+        self.view.container.update()
+        await itx.response.edit_message(view=self.view, attachments=[await self.view.generate_image(draw_hp=True)])
+        await itx.followup.send(content=content, ephemeral=True)
+
+    def update(self) -> None:
+        self.clear_items()
+        if self.view.is_finished():
+            self.view.remove_item(self)
+            return
+
+        self.add_item(self.surface)
+
+        if self.session.inventory.cached.quantity_of(Items.railgun) > 0:
+            self.add_item(self.railgun)
+            down = self.session.grid[self.session.y + 1][self.session.x]
+            self.railgun.disabled = (
+                self.session.record.railgun_expiry and self.session.record.railgun_expiry > utcnow()
+                or (
+                    down
+                    and down.item
+                    and self.session.backpack_occupied + down.item.volume > self.session.backpack.capacity
+                )
+            )
+
+        dynamite = self.session.inventory.cached.quantity_of(Items.dynamite)
+        self.add_item(self.dynamite)
+
+        self.dynamite.label = str(dynamite) if dynamite > 0 else None
+        self.dynamite.disabled = dynamite <= 0 or self.session.backpack_occupied == self.session.backpack.capacity
 
 
 class DiggingView(UserLayoutView):
@@ -325,21 +362,17 @@ class DiggingView(UserLayoutView):
         self.container: DiggingContainer = DiggingContainer(self)
 
         self.add_item(self.container)
-        self.add_item(
-            row := ui.ActionRow().add_item(surface_btn := SurfaceButton()).add_item(railgun_btn := RailgunButton())
-        )
-        self._row = row
-        self._surface_btn = surface_btn
-        self._railgun_btn = railgun_btn
+        self.add_item(row := DiggingActionRow())
+        self.action_row = row
 
     async def prepare(self) -> None:
         """Prepares the digging session and its assets."""
         await self.session.prepare()
         self.container.update()
 
-    async def generate_image(self) -> File:
+    async def generate_image(self, *, draw_hp: bool = False) -> File:
         """Generates the digging session image."""
-        return await self.session.generate_image(active=not self.is_finished())
+        return await self.session.generate_image(active=not self.is_finished(), draw_hp=draw_hp)
 
     async def on_timeout(self) -> None:
         self.clear_items()
@@ -348,28 +381,6 @@ class DiggingView(UserLayoutView):
 
         self.add_item(ui.TextDisplay(f'{Emojis.disabled} **Digging session timed out.**'))
         await self.ctx.maybe_edit(view=self, attachments=[await self.session.generate_image()])
-
-    def update_row(self) -> None:
-        if self.is_finished():
-            self._row.clear_items()
-            self.remove_item(self._row)
-            return
-
-        if self.session.inventory.cached.quantity_of(Items.railgun) <= 0:
-            self._row.remove_item(self._railgun_btn)
-        else:
-            if self._railgun_btn not in self._row.children:
-                self._row.add_item(self._railgun_btn)
-
-            down = self.session.grid[self.session.y + 1][self.session.x]
-            self._railgun_btn.disabled = (
-                self.session.record.railgun_expiry and self.session.record.railgun_expiry > utcnow()
-                or (
-                    down
-                    and down.item
-                    and self.session.backpack_occupied + down.item.volume > self.session.backpack.capacity
-                )
-            )
 
 
 class DiggingSession:
@@ -614,7 +625,7 @@ class DiggingSession:
             (ex - x) ** 2 + (ey - y) ** 2 <= v_sq for ex, ey in self.explored)  # TODO: this is an expensive check
 
     @executor_function
-    def _generate_image(self, *, active: bool = True) -> BytesIO:
+    def _generate_image(self, *, active: bool = True, draw_hp: bool = False) -> BytesIO:
         image = Image.new('RGBA', (self.IMAGE_WIDTH, self.IMAGE_HEIGHT), self.BG_COLOR)
         draw = ImageDraw.Draw(image)
 
@@ -642,6 +653,16 @@ class DiggingSession:
                     cell_image = self.coin_image if cell.coins else self.image_cache[cell.item]
                     image.paste(cell_image, (px + self.OVERLAY_PADDING, py + self.OVERLAY_PADDING), cell_image)
 
+                if draw_hp and cell.item:
+                    alpha = int(255 * max(0.0, cell.hp / cell.item.hp + 0.2))
+                    if alpha > 255:
+                        continue
+
+                    for qx in range(px, px + self.CELL_WIDTH):
+                        for qy in range(py, py + self.CELL_WIDTH):
+                            r, g, b, a = image.getpixel((qx, qy))
+                            image.putpixel((qx, qy), (r, g, b, alpha))
+
         # Draw the background ONLY if there is space up top
         true_origin = self.Y_OFFSET - max(0, self.y) * self.CELL_WIDTH
         if true_origin > -self.BG_OFFSET:
@@ -666,10 +687,10 @@ class DiggingSession:
         buffer.seek(0)
         return buffer
 
-    async def generate_image(self, *, active: bool = True) -> File:
+    async def generate_image(self, *, active: bool = True, draw_hp: bool = False) -> File:
         """Generates the digging session image."""
         await self.prepare_assets()
-        return File(await self._generate_image(active=active), filename='digging.png')
+        return File(await self._generate_image(active=active, draw_hp=draw_hp), filename='digging.png')
 
     # We can either simply "dig/mine" left/right targets, or OPTIONALLY move into the space after we have dug it.
     # However, after digging/mining a down target, we MUST move into that space (we "fall").
@@ -677,9 +698,8 @@ class DiggingSession:
     def _cleanup_explored(self) -> None:
         self.explored = {(x, y) for x, y in self.explored if y >= self.y_range.start}
 
-    def collect_target(self) -> int | Item | None:
-        x, y = self.target_xy
-        cell = self.target_cell
+    def collect(self, x: int, y: int) -> int | Item | None:
+        cell = self.grid[y][x]
         self.grid[y][x] = None
 
         out = None
@@ -693,6 +713,13 @@ class DiggingSession:
 
         self.explored.add((x, y))
         return out
+
+    def collect_target(self) -> int | Item | None:
+        x, y = self.target_xy
+        if y < 0 or x < 0 or x >= self.GRID_WIDTH:
+            return None
+
+        return self.collect(x, y)
 
     def move(self) -> int | Item | None:
         """Moves into the target cell. Typically called after the target has successfully been "dug"."""
@@ -733,3 +760,46 @@ class DiggingSession:
                 remaining = 0
 
         return added_coins, added_items
+
+    def surrounding_dig(self, base_hp: int, *, radius: int = 2) -> tuple[int, int, defaultdict[Item, int]]:
+        """Deals damage to all cells within the radius, collecting coins and items if possible.
+
+        Note that `base_hp` damage is dealt to cells that are neighboring the target cell (distance 1), then
+        HP dealt is multiplied by (1 / R^2) for cells that are further away, where R is the distance from the current
+        position.
+        """
+        added_coins = total_hp = 0
+        added_items = defaultdict(int)
+
+        for y in range(self.y - radius, self.y + radius + 1):
+            if y < 0 or y >= len(self.grid):
+                continue
+            for x in range(self.x - radius, self.x + radius + 1):
+                if x < 0 or x >= self.GRID_WIDTH:
+                    continue
+
+                distance = (x - self.x) ** 2 + (y - self.y) ** 2
+                if distance > radius ** 2:
+                    continue
+
+                cell = self.grid[y][x]
+                if not cell or cell.item and self.backpack_occupied + cell.item.volume > self.backpack.capacity:
+                    continue
+
+                damage = base_hp / distance
+                total_hp += min(cell.hp, damage)
+                cell.hp -= damage
+
+                if cell.hp <= 0:
+                    out = self.collect(x, y)
+                    if isinstance(out, int):
+                        added_coins += out
+                    elif isinstance(out, Item):
+                        added_items[out] += 1
+
+        # Normalize
+        self.target = self.Target.down
+        while self.target_cell is None:
+            self.move()
+
+        return total_hp, added_coins, added_items

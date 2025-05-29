@@ -1450,7 +1450,7 @@ class Items:
     )
 
     railgun = Item(
-        type=ItemType.tool,
+        type=ItemType.power_up,
         key='railgun',
         name='Railgun',
         emoji='<:railgun:1376071981719359518>',
@@ -1463,6 +1463,17 @@ class Items:
         buyable=True,
     )
 
+    dynamite = Item(
+        type=ItemType.power_up,
+        key='dynamite',
+        name='Dynamite',
+        emoji='<:dynamite:1377482796255154246>',
+        description='Deal a great amount of HP to surrounding dirt when digging! Consumed upon use.',
+        rarity=ItemRarity.uncommon,
+        sell=5000,
+        buyable=False,
+    )
+
     common_crate = Crate(
         key='common_crate',
         name='Common Crate',
@@ -1473,6 +1484,7 @@ class Items:
             minimum=200,
             maximum=600,
             items={
+                dynamite: (0.03, 1, 1),
                 banknote: (0.05, 1, 1),
                 padlock: (0.5, 1, 1),
             },
@@ -1489,6 +1501,7 @@ class Items:
             minimum=500,
             maximum=1500,
             items={
+                dynamite: (0.1, 1, 1),
                 banknote: (0.15, 1, 1),
                 cheese: (0.5, 1, 2),
                 lifesaver: (0.5, 1, 1),
@@ -1508,6 +1521,7 @@ class Items:
             minimum=1500,
             maximum=3500,
             items={
+                dynamite: (0.1, 1, 1),
                 fishing_pole: (0.1, 1, 1),
                 alcohol: (0.1, 1, 1),
                 banknote: (0.15, 1, 2),
@@ -1529,6 +1543,7 @@ class Items:
             minimum=3000,
             maximum=6000,
             items={
+                dynamite: (0.1, 1, 1),
                 fishing_pole: (0.1, 1, 1),
                 alcohol: (0.1, 1, 1),
                 banknote: (0.15, 1, 2),
@@ -1554,6 +1569,7 @@ class Items:
                 pickaxe: (0.1, 1, 1),
                 shovel: (0.1, 1, 1),
                 alcohol: (0.1, 1, 1),
+                dynamite: (0.2, 1, 2),
                 banknote: (0.2, 1, 3),
                 fish_bait: (0.3, 5, 15),
                 cheese: (0.4, 1, 3),
@@ -1582,6 +1598,7 @@ class Items:
                 axe: (0.1, 1, 1),
                 alcohol: (0.1, 1, 1),
                 banknote: (0.2, 1, 5),
+                dynamite: (0.25, 1, 3),
                 fish_bait: (0.3, 20, 50),
                 cheese: (0.4, 2, 5),
                 lifesaver: (0.5, 2, 4),
@@ -1611,6 +1628,7 @@ class Items:
                 axe: (0.1, 1, 2),
                 alcohol: (0.1, 1, 2),
                 banknote: (0.2, 2, 7),
+                dynamite: (0.3, 2, 8),
                 fish_bait: (0.3, 50, 100),
                 cheese: (0.4, 2, 7),
                 lifesaver: (0.5, 2, 6),

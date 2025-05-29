@@ -537,6 +537,7 @@ class Profit(Cog):
                 None: 0.94,
                 Items.stick: 0.04,
                 Items.cheese: 0.02,
+                Items.dynamite: 0.02,
             }
         ),
         'car': SearchArea(
@@ -560,6 +561,7 @@ class Profit(Cog):
                 None: 0.97,
                 Items.banknote: 0.03,
                 Items.key: 0.03,
+                Items.dynamite: 0.01,
             },
         ),
         'bank': SearchArea(
@@ -581,6 +583,7 @@ class Profit(Cog):
             items={
                 None: 0.85,
                 Items.banknote: 0.15,
+                Items.dynamite: 0.1,
             },
         ),
         'house': SearchArea(  # credit: Clammerz
@@ -812,6 +815,7 @@ class Profit(Cog):
                 Items.tobacco: 0.7,
                 Items.key: 0.2,
                 Items.banknote: 0.2,
+                Items.dynamite: 0.1,
             },
         ),
         'arson': CrimeData(
@@ -839,6 +843,7 @@ class Profit(Cog):
                 Items.banknote: 0.1,
                 Items.fishing_pole: 0.1,
                 Items.key: 0.1,
+                Items.dynamite: 0.1,
             },
         ),
     }
@@ -945,7 +950,7 @@ class Profit(Cog):
         await game.wait()
 
     @command(aliases={'shovel', 'di', 'mine', 'pickaxe', 'm'}, hybrid=True)
-    @simple_cooldown(1, 180)
+    @simple_cooldown(1, 240)
     @user_max_concurrency(1)
     async def dig(self, ctx: Context) -> CommandResponse:
         """Dig up items from the ground and sell them for profit!"""
@@ -1711,7 +1716,7 @@ class RobbingKeypad(discord.ui.View):
         self.add_item(self.submit_button)
         self.add_item(self.catch_button)
 
-    async def clear_callback(self, interaction: TypedInteraction) -> None:
+    async def clear_callback(self, interaction: TypedInteraction):
         if interaction.user != self.ctx.author:
             return await interaction.response.send_message('nope', ephemeral=True)
 
@@ -1720,14 +1725,14 @@ class RobbingKeypad(discord.ui.View):
 
         await interaction.response.edit_message(embed=self.embed, view=self)
 
-    async def submit_callback(self, interaction: TypedInteraction) -> None:
+    async def submit_callback(self, interaction: TypedInteraction):
         if interaction.user != self.ctx.author:
             return await interaction.response.send_message('nope', ephemeral=True)
 
         self.dangling_interaction = interaction
         self.stop()
 
-    async def catch_callback(self, interaction: TypedInteraction) -> None:
+    async def catch_callback(self, interaction: TypedInteraction):
         if interaction.user != self.opponent:
             return await interaction.response.send_message(f'Only {self.opponent.mention} can use this button.', ephemeral=True)
 
@@ -2140,6 +2145,7 @@ class DivingView(UserView):
         Items.padlock: 0.1,
         Items.banknote: 0.1,
         Items.key: 0.098,
+        Items.dynamite: 0.07,
         Items.eel: 0.002,
     }
 
