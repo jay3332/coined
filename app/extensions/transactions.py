@@ -1597,7 +1597,8 @@ class PrestigeView(UserView):
             f'- {self.next_prestige * 50}% faster bank space gain,\n'
             f'- {self.next_prestige * 25}% XP multiplier,\n'
             f'- {self.next_prestige * 25}% coin multiplier,\n'
-            f'- {self.next_prestige * 20}% extra space from banknotes, and\n'
+            f'- {self.next_prestige * 20}% extra space from banknotes,\n'
+            f'- 20 more :zap: stamina when digging and diving, and\n'
             f'- {self.emoji} **Prestige {self.next_prestige}** badge'
         )
         message = (

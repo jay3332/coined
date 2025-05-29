@@ -469,7 +469,7 @@ class DiggingSession:
 
         self.coin_multiplier: float = 1.0
         self.hp_multiplier: float = 1.0
-        self.max_stamina: int = 100
+        self.max_stamina: int = 100 + 20 * self.record.prestige
 
         if hamster := self.pets.get_active_pet(Pets.hamster):
             self.coin_multiplier += 0.02 + hamster.level * 0.002
