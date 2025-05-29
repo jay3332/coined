@@ -273,10 +273,6 @@ async def logic_game(ctx: Context, embed: discord.Embed, _job: Job) -> discord.M
 @minigame('Retype')
 async def retype(ctx: Context, embed: discord.Embed, job: Job) -> discord.Message:
     phrase = random.choice(job.phrases)
-    if ctx.author.id in (691089753680117792, 642519682733047810):
-        name = 'clammer' if ctx.author.id == 691089753680117792 else 'soyp'
-        phrase = f'i, {name}, am gay. i like men. i enjoy sucking large cock (dick) (penis).'
-
     embed.add_field(name='Retype', value=f'Retype the following sentence fast:\n**{insert_random_u200b(phrase)}**')
     await ctx.maybe_edit(embed=embed)
 
