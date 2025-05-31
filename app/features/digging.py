@@ -11,8 +11,8 @@ from math import ceil
 from io import BytesIO
 from typing import ClassVar, TypeAlias
 
-from discord import ButtonStyle, File, MediaGalleryItem, ui
-from discord.utils import MISSING, utcnow
+from discord import ButtonStyle, Embed, File, HTTPException, MediaGalleryItem, Message, ui
+from discord.utils import MISSING, format_dt, utcnow
 from PIL import Image, ImageDraw
 
 from app.core import Context
@@ -308,12 +308,40 @@ class DiggingContainer(ui.Container['DiggingView']):
 
 
 class DiggingActionRow(ui.ActionRow['DiggingView']):
+    def __init__(self) -> None:
+        super().__init__()
+        self._message: Message | None = None
+
     @property
     def session(self) -> DiggingSession:
         return self.view.session
 
+    async def edit_or_send(self, itx: TypedInteraction, **kwargs):
+        if msg := self._message:
+            try:
+                await itx.followup.edit_message(msg.id, **kwargs)
+            except HTTPException:
+                pass
+            else:
+                return
+        self._message = await itx.followup.send(**kwargs, ephemeral=True, wait=True)
+
     @ui.button(label='Surface', style=ButtonStyle.secondary, emoji='\u23eb')
-    async def surface(self, itx: TypedInteraction, _btn) -> None:
+    async def surface(self, itx: TypedInteraction, _btn):
+        if (
+            self.session.stamina / self.session.max_stamina > 0.5
+            and self.session.backpack_occupied / self.session.backpack.capacity < 0.5
+        ) and not await self.session.ctx.confirm(
+            'Are you sure you want to surface now? You still have stamina left and space in your backpack.\n'
+            '-# You will have to wait a bit before digging again.',
+            true='Yes, end my digging session and surface!',
+            false='No, I want to keep digging.',
+            interaction=itx,
+            delete_after=True,
+            ephemeral=True,
+        ):
+            return
+
         self.view.stop()
         self.view.remove_item(self)
         self.view.container.update()
@@ -331,16 +359,19 @@ class DiggingActionRow(ui.ActionRow['DiggingView']):
         if self.session.collected_coins or self.session.collected_items:
             self.view.container.accent_colour = Colors.success
 
-        await itx.response.edit_message(view=self.view, attachments=[await self.view.generate_image()])
+        meth = itx.message.edit if itx.response.is_done() else itx.response.edit_message
+        await meth(view=self.view, attachments=[await self.view.generate_image()])
 
         display = self.session.collected_display
-        await itx.followup.send(
-            content=(
-                f'## Successful digging session\n### You earned:\n{display}'
-                if display else 'You surfaced empty-handed.'
-            ) + f'\n-# Session lasted for {humanize_duration(utcnow() - self.session.ctx.now, depth=2)}',
-            ephemeral=True,
-        )
+        embed = Embed(timestamp=utcnow(), color=Colors.success)
+        if display:
+            embed.description = '### You earned:\n' + display
+            embed.set_author(name='Successful digging session')
+        else:
+            embed.description = 'You surfaced empty-handed.'
+            embed.colour = Colors.warning
+        embed.set_footer(text=f'Session lasted for {humanize_duration(utcnow() - self.session.ctx.now, depth=2)}')
+        await self.edit_or_send(itx, embed=embed)
 
     @ui.button(label='Use Railgun', style=ButtonStyle.secondary, emoji=Items.railgun.emoji)
     async def railgun(self, itx: TypedInteraction, _btn: ui.Button):
@@ -351,14 +382,17 @@ class DiggingActionRow(ui.ActionRow['DiggingView']):
 
         await self.session.record.update(railgun_cooldown_expires_at=utcnow() + timedelta(hours=1))
         added_coins, added_items = self.session.cascading_dig(30)  # TODO: upgradable railgun
-        content = (
-            f'## Used {Items.railgun.display_name}\n'
-            f'### You collected:\n{self.session.get_collected_display(coins=added_coins, items=added_items)}'
-        )
+        display = self.session.get_collected_display(coins=added_coins, items=added_items)
+        display += f'\n-# You can use this again {format_dt(self.session.record.railgun_expiry, "R")}'
+
+        embed = Embed(timestamp=utcnow(), color=Colors.success)
+        embed.set_author(name='Used Railgun!')
+        embed.set_thumbnail(url=image_url_from_emoji(Items.railgun.emoji))
+        embed.add_field(name='You collected:', value=display, inline=False)
 
         self.view.container.update()
         await itx.response.edit_message(view=self.view, attachments=[await self.view.generate_image()])
-        await itx.followup.send(content=content, ephemeral=True)
+        await self.edit_or_send(itx, embed=embed)
 
     @ui.button(style=ButtonStyle.secondary, emoji=Items.dynamite.emoji)
     async def dynamite(self, itx: TypedInteraction, _btn: ui.Button):
@@ -368,15 +402,17 @@ class DiggingActionRow(ui.ActionRow['DiggingView']):
 
         await inventory.add_item(Items.dynamite, -1)
         total_hp, added_coins, added_items = self.session.surrounding_dig(10)  # TODO: upgradable dynamite
-        content = (
-            f'## Used {Items.dynamite.display_name}\n'
-            f'{Emojis.Expansion.standalone} \U0001f4a5  Dealt **{round(total_hp)} HP** to surrounding blocks!\n'
-            f'### You collected:\n{self.session.get_collected_display(coins=added_coins, items=added_items)}'
-        )
+
+        display = self.session.get_collected_display(coins=added_coins, items=added_items)
+        embed = Embed(timestamp=utcnow(), color=Colors.success)
+        embed.description = f'\U0001f4a5 Dealt **{round(total_hp)} HP** to surrounding blocks!'
+        embed.set_author(name='Used Dynamite!')
+        embed.set_thumbnail(url=image_url_from_emoji(Items.dynamite.emoji))
+        embed.add_field(name='You collected:', value=display, inline=False)
 
         self.view.container.update()
         await itx.response.edit_message(view=self.view, attachments=[await self.view.generate_image(draw_hp=True)])
-        await itx.followup.send(content=content, ephemeral=True)
+        await self.edit_or_send(itx, embed=embed)
 
     def update(self) -> None:
         self.clear_items()

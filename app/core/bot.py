@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from asyncio import subprocess
 import json
 import math
 import os
 import re
 import sys
+from asyncio import subprocess
 from collections import deque
 from datetime import datetime, time
 from io import BytesIO

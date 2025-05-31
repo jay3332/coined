@@ -152,7 +152,7 @@ class Miscellaneous(Cog):
     @help_app_command.command(name='command')
     @app_commands.rename(cmd='command')
     @app_commands.describe(cmd='The command to learn more about.')
-    async def help_cmd(self, itx: TypedInteraction, cmd: str) -> None:
+    async def help_cmd(self, itx: TypedInteraction, cmd: str) -> Any:
         """Learn more about a specific command."""
         resolved = self.bot.get_command(cmd)
         if resolved is None:
