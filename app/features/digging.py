@@ -326,22 +326,7 @@ class DiggingActionRow(ui.ActionRow['DiggingView']):
                 return
         self._message = await itx.followup.send(**kwargs, ephemeral=True, wait=True)
 
-    @ui.button(label='Surface', style=ButtonStyle.secondary, emoji='\u23eb')
-    async def surface(self, itx: TypedInteraction, _btn):
-        if (
-            self.session.stamina / self.session.max_stamina > 0.5
-            and self.session.backpack_occupied / self.session.backpack.capacity < 0.5
-        ) and not await self.session.ctx.confirm(
-            'Are you sure you want to surface now? You still have stamina left and space in your backpack.\n'
-            '-# You will have to wait a bit before digging again.',
-            true='Yes, end my digging session and surface!',
-            false='No, I want to keep digging.',
-            interaction=itx,
-            delete_after=True,
-            ephemeral=True,
-        ):
-            return
-
+    async def base_surface(self) -> dict:
         self.view.stop()
         self.view.remove_item(self)
         self.view.container.update()
@@ -359,8 +344,26 @@ class DiggingActionRow(ui.ActionRow['DiggingView']):
         if self.session.collected_coins or self.session.collected_items:
             self.view.container.accent_colour = Colors.success
 
+        return dict(view=self.view, attachments=[await self.view.generate_image()])
+
+    @ui.button(label='Surface', style=ButtonStyle.secondary, emoji='\u23eb')
+    async def surface(self, itx: TypedInteraction, _btn):
+        if (
+            self.session.stamina / self.session.max_stamina > 0.5
+            and self.session.backpack_occupied / self.session.backpack.capacity < 0.5
+        ) and not await self.session.ctx.confirm(
+            'Are you sure you want to surface now? You still have stamina left and space in your backpack.\n'
+            '-# You will have to wait a bit before digging again.',
+            true='Yes, end my digging session and surface!',
+            false='No, I want to keep digging.',
+            interaction=itx,
+            delete_after=True,
+            ephemeral=True,
+        ):
+            return
+
         meth = itx.message.edit if itx.response.is_done() else itx.response.edit_message
-        await meth(view=self.view, attachments=[await self.view.generate_image()])
+        await meth(**await self.base_surface())
 
         display = self.session.collected_display
         embed = Embed(timestamp=utcnow(), color=Colors.success)
@@ -422,6 +425,16 @@ class DiggingActionRow(ui.ActionRow['DiggingView']):
 
         self.add_item(self.surface)
 
+        target_exceeds_volume = (
+            self.session.target_cell and self.session.target_cell.item
+            and self.session.backpack_occupied + self.session.target_cell.item.volume > self.session.backpack.capacity
+        )
+        self.surface.style = (
+             ButtonStyle.success
+             if self.session.stamina <= 0 or target_exceeds_volume
+             else ButtonStyle.secondary
+        )
+
         if self.session.inventory.cached.quantity_of(Items.railgun) > 0:
             self.add_item(self.railgun)
             down = self.session.grid[self.session.y + 1][self.session.x]
@@ -462,12 +475,7 @@ class DiggingView(UserLayoutView):
         return await self.session.generate_image(active=not self.is_finished(), draw_hp=draw_hp)
 
     async def on_timeout(self) -> None:
-        self.clear_items()
-        self.container.update()
-        self.container.accent_colour = Colors.error
-
-        self.add_item(ui.TextDisplay(f'{Emojis.disabled} **Digging session timed out.**'))
-        await self.ctx.maybe_edit(view=self, attachments=[await self.session.generate_image()])
+        await self.ctx.maybe_edit(**await self.action_row.base_surface())
 
 
 class DiggingSession:
