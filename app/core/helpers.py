@@ -72,6 +72,8 @@ async def _into_interaction_response(interaction: TypedInteraction, kwargs: dict
         else:
             return
 
+    if 'attachments' in kwargs:
+        kwargs['files'] = kwargs.pop('attachments')
     if interaction.response.is_done():
         await interaction.followup.send(**kwargs)
     else:
