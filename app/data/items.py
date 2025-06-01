@@ -1459,7 +1459,7 @@ class Items:
             'below you while digging, cascading to deeper layers until all 30 HP is used.'
         ),
         rarity=ItemRarity.rare,
-        price=200000,
+        price=50000,
         buyable=True,
     )
 
