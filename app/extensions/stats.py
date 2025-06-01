@@ -53,6 +53,13 @@ _LB_SORT_BY_MAPPING: dict[str | None, str] = {
     'lvl': 'total_exp',
     'l': 'total_exp',
     'exp': 'total_exp',
+    'v': 'votes_this_month',
+    'votes': 'votes_this_month',
+    'vote': 'votes_this_month',
+    'dig': 'deepest_dig',
+    'd': 'deepest_dig',
+    'depth': 'deepest_dig',
+    'deepest': 'deepest_dig',
 }
 
 
@@ -90,6 +97,8 @@ class LeaderboardFormatter(Formatter[tuple[UserRecord, discord.Member]]):
         'bank': 'Sorting by coins in bank',
         'total_coins': 'Sorted by total coins',
         'total_exp': 'Sorted by level and EXP',
+        'votes_this_month': 'Sorted by votes this month',
+        'deepest_dig': 'Sorted by deepest dig (any biome)',
     }
 
     async def format_page(self, paginator: Paginator, entries: list[tuple[UserRecord, discord.Member]]) -> discord.Embed:
@@ -112,11 +121,19 @@ class LeaderboardFormatter(Formatter[tuple[UserRecord, discord.Member]]):
                 or record.user_id == paginator.ctx.author.id
             )
             name = '*Anonymous User*' if anonymize else discord.utils.escape_markdown(str(user))
-            stat = (
-                f'**Level {record.level:,}** \u2022 {record.exp:,} XP'
-                if self.attr == 'total_exp'
-                else f'{Emojis.coin} **{getattr(record, self.attr):,}**'
-            )
+
+            match self.attr:
+                case 'wallet' | 'bank' | 'total_coins':
+                    stat = f'{Emojis.coin} **{getattr(record, self.attr):,}**'
+                case 'total_exp':
+                    stat = f'**Level {record.level:,}** \u2022 {record.exp:,} XP'
+                case 'votes_this_month':
+                    stat = f'**{record.votes_this_month:,} votes**'
+                case 'deepest_dig':
+                    stat = f'**{record.deepest_dig:,} meters**'
+                case _:
+                    raise ValueError(f'Unknown leaderboard attribute: {self.attr}')
+
             result.append(
                 f'{start} {stat} \u2014 {name} {Emojis.get_prestige_emoji(record.prestige)}'
             )
@@ -341,7 +358,7 @@ class Stats(Cog):
         - This leaderboard only shows *cached users*: if a user has not used the bot since the last startup, they will not be shown here.
         - This leaderboard shows the richest users by their *wallet* unless specified otherwise.
 
-        Valid arguments for `sort_by`: `wallet` (default), `bank`, `total`, or `level`.
+        Valid arguments for `sort_by`: `wallet` (default), `bank`, `total`, `level`, `votes`, or `dig`.
 
         Flags:
         - `--global`: Show the global leaderboard instead of the server leaderboard. If specified, this will only show the top 100 users.
@@ -350,8 +367,10 @@ class Stats(Cog):
         sort_by = sort_by or 'wallet'
         if not flags.is_global and not ctx.guild:
             flags.is_global = True
+        if sort_by == 'deepest_dig':
+            return 'TODO'  # TODO: implement this
 
-        assert sort_by in ('wallet', 'bank', 'total_coins', 'total_exp')
+        assert sort_by in ('wallet', 'bank', 'total_coins', 'total_exp', 'votes_this_month')
         population = (
             ctx.db.user_records.values()
             if flags.is_global
@@ -365,6 +384,11 @@ class Stats(Cog):
             key=lambda r: getattr(r[0], sort_by),
             reverse=True,
         )
+        if sort_by == 'votes_this_month':
+            records = [
+                (record, user) for record, user in records
+                if record.last_dbl_vote and record.last_dbl_vote.month == ctx.now.month
+            ]
         if flags.is_global:
             records = records[:100]  # TODO: perf improvements here
 
@@ -388,6 +412,8 @@ class Stats(Cog):
         Choice(name='Bank', value='bank'),
         Choice(name='Total', value='total_coins'),
         Choice(name='Level/EXP', value='total_exp'),
+        Choice(name='Votes this Month', value='votes_this_month'),
+        Choice(name='Deepest Dig', value='deepest_dig'),
     ])
     async def leaderboard_app_command(
         self, ctx: HybridContext, sort_by: str = 'wallet', is_global: bool = False,

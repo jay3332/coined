@@ -28,10 +28,10 @@ from config import Colors, errors_channel, guilds_channel, support_server, votes
 
 
 LEVEL_REWARDS: Final[dict[int, Reward]] = {
-    1: Reward(items={Items.fishing_pole: 1}),
-    2: Reward(items={Items.banknote: 1}),
+    1: Reward(items={Items.fishing_pole: 1, Items.shovel: 1, Items.pickaxe: 1, Items.dynamite: 10}),
+    2: Reward(items={Items.banknote: 2}),
     3: Reward(items={Items.lifesaver: 5}),
-    4: Reward(items={Items.pickaxe: 1}),
+    4: Reward(items={Items.dynamite: 10}),
     5: Reward(items={Items.uncommon_crate: 1, Items.padlock: 3, Items.key: 1}),
     7: Reward(items={Items.shovel: 1, Items.cheese: 1}),
     10: Reward(coins=10000, items={Items.epic_crate: 1, Items.banknote: 3, Items.cigarette: 1}),
@@ -41,7 +41,10 @@ LEVEL_REWARDS: Final[dict[int, Reward]] = {
     30: Reward(coins=30000, items={Items.banknote: 3, Items.lifesaver: 5}),
     35: Reward(items={Items.cheese: 5, Items.cigarette: 5}),
     40: Reward(items={Items.legendary_crate: 1, Items.banknote: 5}),
-    45: Reward(items={Items.durable_pickaxe: 1, Items.durable_shovel: 1}),
+    45: Reward(items={
+        Items.durable_fishing_pole: 1, Items.durable_pickaxe: 1,
+        Items.durable_shovel: 1, Items.dynamite: 10,
+    }),
     50: Reward(items={Items.spinning_coin: 1}),
     55: Reward(items={Items.camera: 1, Items.alcohol: 1}),
     60: Reward(coins=50000, items={Items.epic_crate: 1, Items.key: 2}),
@@ -50,13 +53,13 @@ LEVEL_REWARDS: Final[dict[int, Reward]] = {
 
 VOTE_REWARDS: Final[dict[int, Reward]] = {
     5: Reward(coins=5000),
-    10: Reward(items={Items.cigarette: 1, Items.banknote: 1}),
+    10: Reward(items={Items.cigarette: 1, Items.banknote: 1, Items.dynamite: 1}),
     15: Reward(coins=10000, items={Items.alcohol: 1}),
     20: Reward(items={Items.key: 1, Items.cheese: 1, Items.banknote: 1}),
-    25: Reward(coins=15000, items={Items.fish_bait: 100, Items.banknote: 1}),
-    30: Reward(items={Items.durable_pickaxe: 1}),
+    25: Reward(coins=15000, items={Items.fish_bait: 100, Items.dynamite: 5, Items.banknote: 1}),
+    30: Reward(items={Items.durable_pickaxe: 1, Items.dynamite: 5}),
     35: Reward(coins=20000, items={Items.banknote: 2}),
-    40: Reward(items={Items.durable_shovel: 1}),
+    40: Reward(items={Items.durable_shovel: 1, Items.dynamite: 5}),
     45: Reward(coins=25000, items={Items.banknote: 2}),
     50: Reward(items={Items.voting_trophy: 1}),
     55: Reward(coins=30000, items={Items.banknote: 3}),
