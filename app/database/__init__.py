@@ -1716,6 +1716,10 @@ class UserRecord(BaseRecord):
         return self.data['votes_this_month']
 
     @property
+    def deepest_dig(self) -> int:
+        return self.data['deepest_dig']
+
+    @property
     def job(self) -> JobProvider | None:
         if self.data.get('job') is None:
             return None

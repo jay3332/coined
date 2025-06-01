@@ -330,9 +330,14 @@ class DiggingActionRow(ui.ActionRow['DiggingView']):
         self.view.stop()
         self.view.remove_item(self)
         self.view.container.update()
+
+        depth = self.session.y + 1
         self.session.position = (self.session.x, -1)
 
         async with self.session.ctx.db.acquire() as conn:
+            if depth > self.session.record.deepest_dig:
+                await self.session.record.update(deepest_dig=depth, connection=conn)
+
             kwargs = {
                 item.key: quantity for item, quantity in self.session.collected_items.items()
             }

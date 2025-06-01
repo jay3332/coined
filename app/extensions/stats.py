@@ -367,10 +367,8 @@ class Stats(Cog):
         sort_by = sort_by or 'wallet'
         if not flags.is_global and not ctx.guild:
             flags.is_global = True
-        if sort_by == 'deepest_dig':
-            return 'TODO'  # TODO: implement this
 
-        assert sort_by in ('wallet', 'bank', 'total_coins', 'total_exp', 'votes_this_month')
+        assert sort_by in ('wallet', 'bank', 'total_coins', 'total_exp', 'votes_this_month', 'deepest_dig')
         population = (
             ctx.db.user_records.values()
             if flags.is_global
