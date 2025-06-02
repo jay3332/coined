@@ -1439,6 +1439,7 @@ class UserRecord(BaseRecord):
 
             if rewards:
                 await rewards.apply(self, connection=connection)
+                await self.update(last_level_reward=self.level, connection=connection)
 
             await self.notifications_manager.add_notification(
                 NotificationData.LevelUp(level=self.level, **rewards.to_notification_data_kwargs()),
