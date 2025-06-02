@@ -16,7 +16,7 @@ from PIL import Image
 from app import Bot
 from app.core import BAD_ARGUMENT, Cog, Context, HybridContext, NO_EXTRA, REPLY, command, group, simple_cooldown
 from app.core.flags import Flags, flag, store_true
-from app.data.items import ItemType, Items
+from app.data.items import ItemType, Items, LEVEL_REWARDS
 from app.database import (
     InventoryManager,
     Multiplier,
@@ -281,6 +281,16 @@ class Stats(Cog):
             name=f"Level {level:,}",
             value=f'{exp:,}/{requirement:,} XP ({exp / requirement:.1%})\n{progress_bar(exp / requirement)}\n' + extra,
         )
+
+        not_earned = ((milestone, reward) for milestone, reward in LEVEL_REWARDS.items() if level < milestone)
+        next_reward = min(not_earned, default=(None, None), key=lambda x: x[0])
+        if next_reward:
+            milestone, reward = next_reward
+            embed.add_field(
+                name=f'\U0001f3c5 Next Milestone: Level {milestone:,}',
+                value=f'Upon reaching this level, you will be rewarded:\n{reward}',
+                inline=False,
+            )
 
         view = discord.ui.View(timeout=60)
         view.add_item(StaticCommandButton(
