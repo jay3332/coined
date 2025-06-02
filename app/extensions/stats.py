@@ -538,7 +538,7 @@ class Stats(Cog):
                 f'{notification.data.describe(ctx.bot).split(newline)[1].removeprefix("-# ")}\n'
                 f'-# Run `{ctx.clean_prefix}notifications view {idx}` for the changelog'
                 if isinstance(notification.data, NotificationData.BotUpdate)
-                else cutoff(notification.data.describe(ctx.bot))
+                else cutoff(notification.data.describe(ctx.bot).splitlines()[0], max_length=256)
             ),
             'inline': False,
         } for idx, notification in enumerate(notifications.cached, start=1)]

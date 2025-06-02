@@ -19,56 +19,13 @@ from app.core import Cog, Command, Context
 from app.core.flags import FlagMeta
 from app.core.helpers import ActiveTransactionLock, CURRENCY_COGS, GenericError
 from app.data.events import EVENT_RARITY_WEIGHTS, Event, Events
-from app.data.items import Items, Reward
+from app.data.items import Items, VOTE_REWARDS
 from app.database import NotificationData
 from app.util.ansi import AnsiColor, AnsiStringBuilder
 from app.util.common import cutoff, humanize_duration, pluralize, walk_collection
+from app.util.converters import BadItemArgument, IncompatibleItemType
 from app.util.views import StaticCommandButton
 from config import Colors, errors_channel, guilds_channel, support_server, votes_channel
-
-
-LEVEL_REWARDS: Final[dict[int, Reward]] = {
-    1: Reward(items={Items.fishing_pole: 1, Items.shovel: 1, Items.pickaxe: 1, Items.dynamite: 10}),
-    2: Reward(items={Items.banknote: 2}),
-    3: Reward(items={Items.lifesaver: 5}),
-    4: Reward(items={Items.dynamite: 10}),
-    5: Reward(items={Items.uncommon_crate: 1, Items.padlock: 3, Items.key: 1}),
-    7: Reward(items={Items.shovel: 1, Items.cheese: 1}),
-    10: Reward(coins=10000, items={Items.epic_crate: 1, Items.banknote: 3, Items.cigarette: 1}),
-    15: Reward(items={Items.axe: 1, Items.net: 1, Items.banknote: 2}),
-    20: Reward(items={Items.legendary_crate: 1}),
-    25: Reward(items={Items.alcohol: 2, Items.sheet_of_paper: 2}),
-    30: Reward(coins=30000, items={Items.banknote: 3, Items.lifesaver: 5}),
-    35: Reward(items={Items.cheese: 5, Items.cigarette: 5}),
-    40: Reward(items={Items.legendary_crate: 1, Items.banknote: 5}),
-    45: Reward(items={
-        Items.durable_fishing_pole: 1, Items.durable_pickaxe: 1,
-        Items.durable_shovel: 1, Items.dynamite: 10,
-    }),
-    50: Reward(items={Items.spinning_coin: 1}),
-    55: Reward(items={Items.camera: 1, Items.alcohol: 1}),
-    60: Reward(coins=50000, items={Items.epic_crate: 1, Items.key: 2}),
-}
-
-
-VOTE_REWARDS: Final[dict[int, Reward]] = {
-    5: Reward(coins=5000),
-    10: Reward(items={Items.cigarette: 1, Items.banknote: 1, Items.dynamite: 1}),
-    15: Reward(coins=10000, items={Items.alcohol: 1}),
-    20: Reward(items={Items.key: 1, Items.cheese: 1, Items.banknote: 1}),
-    25: Reward(coins=15000, items={Items.fish_bait: 100, Items.dynamite: 5, Items.banknote: 1}),
-    30: Reward(items={Items.durable_pickaxe: 1, Items.dynamite: 5}),
-    35: Reward(coins=20000, items={Items.banknote: 2}),
-    40: Reward(items={Items.durable_shovel: 1, Items.dynamite: 5}),
-    45: Reward(coins=25000, items={Items.banknote: 2}),
-    50: Reward(items={Items.voting_trophy: 1}),
-    55: Reward(coins=30000, items={Items.banknote: 3}),
-    60: Reward(items={Items.spinning_coin: 1}),
-    65: Reward(coins=35000, items={Items.banknote: 3}),
-    70: Reward(items={Items.legendary_crate: 1}),
-    75: Reward(coins=50000, items={Items.banknote: 5}),
-    80: Reward(items={Items.mythic_crate: 1}),
-}
 
 
 class EventsCog(Cog, name='Events'):
@@ -167,13 +124,20 @@ class EventsCog(Cog, name='Events'):
                 '**with extra context**!*',
             )
 
+    ERROR_PRIORITY = (IncompatibleItemType, BadItemArgument)
+
     @Cog.listener()
     async def on_command_error(self, ctx: Context, error: Exception) -> Any:
         # sourcery no-metrics
         error = getattr(error, 'original', error)
 
         if isinstance(error, commands.BadUnionArgument):
-            error = error.errors[0]
+            for err in error.errors:
+                if isinstance(err, self.ERROR_PRIORITY):
+                    error = err
+                    break
+            else:
+                error = error.errors[0]
 
         respond = functools.partial(ctx.send, reference=ctx.message, delete_after=30, ephemeral=True)
 

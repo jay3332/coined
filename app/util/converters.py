@@ -120,6 +120,14 @@ class PastMinimum(Exception):
     pass
 
 
+class IncompatibleItemType(BadArgument):
+    pass
+
+
+class BadItemArgument(BadArgument):
+    pass
+
+
 def get_amount(total: float, minimum: int, maximum: int, arg: str) -> int:
     """Gets an amount of coins given an argument.
 
@@ -243,16 +251,16 @@ async def transform_item_and_quantity(
 ) -> ItemAndQuantity:
     plural = item.get_display_name(plural=True)
     if method == BUY and not item.buyable:
-        raise BadArgument(f'{plural} are currently not buyable.')
+        raise IncompatibleItemType(f'{plural} are currently not buyable.')
 
     if method == SELL and not item.sellable:
-        raise BadArgument(f'{plural} are not sellable.')
+        raise IncompatibleItemType(f'{plural} are not sellable.')
 
     if method == USE and not item.usable:
-        raise BadArgument(f'{plural} are not usable.')
+        raise IncompatibleItemType(f'{plural} are not usable.')
 
     if method == DROP and not item.giftable:
-        raise BadArgument(f'{plural} are not giftable.')
+        raise IncompatibleItemType(f'{plural} are not giftable.')
 
     record = await ctx.db.get_user_record(ctx.author.id)
     minimum = 1
@@ -269,25 +277,25 @@ async def transform_item_and_quantity(
     try:
         quantity = get_amount(maximum, minimum, maximum, quantity)
     except PastMinimum:
-        raise BadArgument(f'You must {method} at least one of that item.')
+        raise BadItemArgument(f'You must {method} at least one of that item.')
     except ZeroQuantity:
-        raise BadArgument(
+        raise BadItemArgument(
             "You can't afford that, pooron" if method == BUY else f'You don\'t have any {plural}.'
         )
     except NotAnInteger:
-        raise BadArgument(
+        raise BadItemArgument(
             f'Invalid quantity {quantity} - either what you specified yields 0, is negative, or it is not an integer.',
         )
     except NotEnough as exc:
         quantity = exc.amount
-        raise BadArgument(
+        raise BadItemArgument(
             f'Insufficient funds, you need {Emojis.coin} **{item.price * quantity:,}** to buy '
             f'{item.get_sentence_chunk(quantity)}, but you only have {Emojis.coin} **{record.wallet:,}**.'
             if method == BUY
             else f'You don\'t have that many, you only own {item.get_sentence_chunk(maximum)}.'
         )
     except ZeroDivisionError:
-        raise BadArgument('Very funny, division by 0.')
+        raise BadItemArgument('Very funny, division by 0.')
 
     return ItemAndQuantity(item, quantity)
 

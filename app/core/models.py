@@ -78,6 +78,7 @@ class Context(TypedContext):
         timeout: float = 60.,
         true: str = 'Yes',
         false: str = 'No',
+        replace_interaction: bool = False,
         **kwargs,
     ) -> bool:
         user = user or self.author
@@ -100,10 +101,13 @@ class Context(TypedContext):
         if message is not None:
             if delete_after:
                 await message.delete(delay=0)
-            else:
+            elif kwargs.pop('edit', True):
                 await message.edit(view=view)
         else:
             await interaction.edit_original_response(view=view)
+
+        if replace_interaction and interaction is None:
+            self.interaction = view.interaction
 
         return getattr(view, '__confirm_value__', False)
 

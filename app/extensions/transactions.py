@@ -109,12 +109,18 @@ async def _SellBulkInvalidCatcher(_, value: str) -> commands.BadArgument:
 
 
 class DropView(discord.ui.View):
-    def __init__(self, ctx: Context) -> None:
+    def __init__(self, ctx: Context, embed: discord.Embed, entity: str, record: UserRecord) -> None:
         super().__init__(timeout=120)
 
         self.ctx: Context = ctx
+        self.embed: discord.Embed = embed
+        self.entity: str = entity
+        self.record: UserRecord = record
+
         self.winner: discord.Member | None = None
         self._lock: asyncio.Lock = asyncio.Lock()
+
+        self.embed.set_footer(text='')
 
     @discord.ui.button(label='Claim!', style=discord.ButtonStyle.success)
     async def claim(self, interaction: TypedInteraction, button: discord.ui.Button) -> None:
@@ -125,7 +131,16 @@ class DropView(discord.ui.View):
             self.winner = interaction.user
             button.disabled = True
 
-            await interaction.response.edit_message(view=self)
+            embed = self.embed
+            embed.colour = Colors.success
+            embed.description = (
+                f'{self.ctx.author.mention} reclaimed their own drop of {self.entity}.'
+                if self.winner == self.ctx.author
+                else f'{self.winner.mention} was the first one to click the button! They have received {self.entity}.'
+            )
+            embed.set_author(name=f'Winner: {self.winner}', icon_url=self.winner.avatar.url)
+
+            await interaction.response.edit_message(embed=embed, view=self)
             self.stop()
 
     async def on_timeout(self) -> None:
@@ -1314,24 +1329,24 @@ class Transactions(Cog):
         if not await ctx.confirm(
             f'Are you sure you want to drop {entity_human}?\n'
             f'This will make the {entity_type} available for anyone in this channel to claim.',
-            delete_after=True,
+            edit=False,
+            replace_interaction=True,
         ):
             if isinstance(entity, int):
                 await record.add(wallet=entity)
             else:
                 # noinspection PyUnboundLocalVariable
                 await inventory.add_item(item, quantity)
-            yield 'I guess we aren\'t dropping anything today then', REPLY
+            yield 'I guess we aren\'t dropping anything today then', dict(view=None), EDIT, NO_EXTRA
             return
 
         embed = discord.Embed(color=Colors.primary, timestamp=ctx.now)
         embed.set_author(name=f'{ctx.author.name} has dropped {entity_type}!', icon_url=ctx.author.display_avatar)
         embed.description = f'{ctx.author.mention} has dropped {entity_human}!'
-
         embed.set_footer(text=f'Click the button below to retrieve your {entity_type}!')
 
-        view = DropView(ctx)
-        yield embed, view, REPLY, NO_EXTRA
+        view = DropView(ctx, embed, entity_human, record)
+        yield '', embed, view, EDIT, NO_EXTRA
 
         embed.set_footer(text='')
 
@@ -1343,10 +1358,10 @@ class Transactions(Cog):
                 # noinspection PyUnboundLocalVariable
                 await inventory.add_item(item, quantity)
 
-            embed.description = 'No one clicked the button! Your entities have been returned.'
+            embed.description = f'No one clicked the button! Your {entity_type} have been returned.'
             embed.colour = Colors.error
 
-            yield embed, view, EDIT
+            await ctx.maybe_edit(embed=embed, view=view)
             return
 
         winner_record = await ctx.db.get_user_record(view.winner.id)
@@ -1355,16 +1370,6 @@ class Transactions(Cog):
         else:
             # noinspection PyUnboundLocalVariable
             await winner_record.inventory_manager.add_item(item, quantity)
-
-        embed.colour = Colors.success
-        embed.description = (
-            f'{ctx.author.mention} reclaimed their own drop of {entity_human}.'
-            if view.winner == ctx.author
-            else f'{view.winner.mention} was the first one to click the button! They have received {entity_human}.'
-        )
-        embed.set_author(name=f'Winner: {view.winner}', icon_url=view.winner.avatar.url)
-
-        yield embed, view, EDIT
 
     @drop.define_app_command()
     @app_commands.describe(

@@ -17,7 +17,7 @@ from discord.utils import cached_property, format_dt
 
 from app.data.abilities import Ability, Abilities
 from app.data.backpacks import Backpack, Backpacks
-from app.data.items import CropMetadata, Item, Items, Reward
+from app.data.items import CropMetadata, Item, Items, Reward, LEVEL_REWARDS
 from app.data.jobs import Job, Jobs
 from app.data.pets import Pet, Pets
 from app.data.skills import Skill, Skills
@@ -310,6 +310,8 @@ class RobFailReason(IntEnum):
 class NotificationData:
     class LevelUp(NamedTuple):
         level: int
+        rcoins: int = 0
+        ritems: dict[str, int] = {}
 
         type = 0
         title = 'You leveled up!'
@@ -317,7 +319,15 @@ class NotificationData:
         emoji = '\u23eb'
 
         def describe(self, _: Bot) -> str:
-            return f'Congratulations on leveling up to **Level {self.level}**!'
+            extra = ''
+            if self.rcoins or self.ritems:
+                reward = Reward.from_raw(self.rcoins, self.ritems)
+                extra = (
+                    f' You received some rewards.\n\n'
+                    f'**Milestone reached!** You received the following for leveling up:\n{reward}'
+                )
+
+            return f'Congratulations on leveling up to **Level {self.level}**!{extra}'
 
     class RobInProgress(NamedTuple):
         user_id: int
@@ -1422,8 +1432,16 @@ class UserRecord(BaseRecord):
         await self.add(exp=exp, connection=connection)
 
         if self.level > old:
+            rewards = Reward()
+            for milestone, reward in LEVEL_REWARDS.items():
+                if self.last_level_reward < milestone <= self.level:
+                    rewards += reward
+
+            if rewards:
+                await rewards.apply(self, connection=connection)
+
             await self.notifications_manager.add_notification(
-                NotificationData.LevelUp(level=self.level),
+                NotificationData.LevelUp(level=self.level, **rewards.to_notification_data_kwargs()),
                 connection=connection,
             )
             return True
@@ -1748,6 +1766,10 @@ class UserRecord(BaseRecord):
     @property
     def cigarette_expiry(self) -> datetime.datetime:
         return self.data['cigarette_expiry']
+
+    @property
+    def last_level_reward(self) -> int:
+        return self.data['last_level_reward']
 
     @property
     def equipped_backpack(self) -> Backpack:
