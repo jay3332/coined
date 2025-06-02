@@ -568,7 +568,7 @@ class Miscellaneous(Cog):
         ),
         (
             lambda record: record.last_dbl_vote and record.last_dbl_vote + datetime.timedelta(hours=12),
-            '**Vote (top.gg)**',
+            '[**Vote (top.gg)**](https://top.gg/bot/{client_id}/vote)',
         ),
     ]
 
@@ -592,6 +592,7 @@ class Miscellaneous(Cog):
             if (timestamp := getter(record)) is None:
                 continue
 
+            name = name.replace('{client_id}', str(ctx.bot.user.id))
             if timestamp > ctx.now:
                 lines.append((f'- {name} ({format_dt(timestamp, "R")})', (timestamp - ctx.now).total_seconds()))
 
