@@ -17,6 +17,7 @@ from discord.utils import format_dt, oauth_url
 
 from app.core import BAD_ARGUMENT, Bot, Cog, Context, EDIT, REPLY, command, group, simple_cooldown
 from app.core.timers import Timer
+from app.database import UserRecord
 from app.data.items import Items
 from app.data.settings import Setting, Settings
 from app.extensions.events import VOTE_REWARDS
@@ -29,7 +30,7 @@ from app.util.views import UserView
 from config import Colors, Emojis, default_permissions, support_server, website
 
 if TYPE_CHECKING:
-    from typing import Self
+    from typing import Callable, Self
 
     from app.core import Command, HybridContext
 
@@ -552,6 +553,25 @@ class Miscellaneous(Cog):
     async def prefix_overwrite_app_command(self, ctx, prefix: str) -> None:
         await ctx.invoke(ctx.command, prefix)
 
+    _CD_FIELDS: list[tuple[Callable[[UserRecord], datetime.datetime | None], str]] = [
+        (
+            lambda record: record.railgun_expiry,
+            Items.railgun.get_display_name(bold=True),
+        ),
+        (
+            lambda record: record.alcohol_expiry,
+            Items.alcohol.get_display_name(bold=True),
+        ),
+        (
+            lambda record: record.cigarette_expiry,
+            Items.cigarette.get_display_name(bold=True),
+        ),
+        (
+            lambda record: record.last_dbl_vote and record.last_dbl_vote + datetime.timedelta(hours=12),
+            '**Vote (top.gg)**',
+        ),
+    ]
+
     @group(aliases={'cd', 'cds', 'cooldown'}, hybrid=True, fallback='list', expand_subcommands=True)
     @simple_cooldown(2, 3)
     async def cooldowns(self, ctx: Context) -> CommandResponse:
@@ -566,6 +586,14 @@ class Miscellaneous(Cog):
             timestamp = ctx.now + datetime.timedelta(seconds=retry_after)
             indicator = '\u23f0' if cmd.qualified_name in active_reminders else ''
             lines.append((f'- **{cmd.qualified_name}** ({format_dt(timestamp, "R")}) {indicator}', retry_after))
+
+        record = await ctx.fetch_author_record()
+        for getter, name in self._CD_FIELDS:
+            if (timestamp := getter(record)) is None:
+                continue
+
+            if timestamp > ctx.now:
+                lines.append((f'- {name} ({format_dt(timestamp, "R")})', (timestamp - ctx.now).total_seconds()))
 
         if not lines:
             return 'No pending cooldowns.', REPLY
