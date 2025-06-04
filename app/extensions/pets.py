@@ -1188,14 +1188,14 @@ class NavigationRow(ui.ActionRow):
 
     def update(self) -> None:
         self.clear_items()
-        need_ff = self.target.max_pages <= 4  # Good enough threshold?
+        need_ff = self.target.max_pages > 3  # Good enough threshold?
 
         if need_ff:
             self.add_item(self.first)
             self.first.disabled = self.target.current_page == 0
 
         self.previous.disabled = self.target.current_page == 0
-        self.last.disabled = self.target.current_page == self.target.max_pages - 1
+        self.next.disabled = self.target.current_page == self.target.max_pages - 1
         self.jump.label = f'{self.target.current_page + 1}/{self.target.max_pages}'
         self.add_item(self.previous).add_item(self.jump).add_item(self.next)
 
