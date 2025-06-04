@@ -225,6 +225,10 @@ class PetsCog(Cog, name='Pets'):
     @pets.command(name='all', aliases={'a', '*', 'discovered'}, hybrid=True)
     async def pets_all(self, ctx: Context) -> CommandResponse:
         """List all discovered pets."""
+        view = PetsAllLayout(ctx)
+        await view.prepare()
+        return view, REPLY
+
         record = await ctx.db.get_user_record(ctx.author.id)
         pets = await record.pet_manager.wait()
 
@@ -648,7 +652,7 @@ class ActivePetsContainer(ui.Container):
     def __init__(self, ctx: Context):
         super().__init__()
         self.ctx: Context = ctx
-        self._accent_color = None
+        self._accent_color = Colors.secondary
 
     async def prepare(self) -> None:
         self.record: UserRecord = await self.ctx.fetch_author_record()
@@ -685,12 +689,16 @@ class ActivePetsContainer(ui.Container):
         )
 
         equipped = (pet for pet in self.pets.cached.values() if pet.equipped)
-        for record in sorted(equipped, key=lambda entry: entry.pet.rarity.value, reverse=True):
-            self.add_item(ui.Separator())
-            self.add_item(ui.Section(
-                f'### **{record.pet.name}** {record.pet.rarity.emoji}',
-                _format_entry(record),
-                accessory=discord.ui.Thumbnail(media=image_url_from_emoji(record.pet.emoji)),
+        for i, record in enumerate(sorted(equipped, key=lambda entry: entry.pet.rarity.value, reverse=True)):
+            self.add_item(ui.Separator(
+                spacing=discord.SeparatorSize.large if i == 0 else discord.SeparatorSize.small,
+            ))
+            self.add_item(ui.TextDisplay(
+                record.pet.jumbo_display(
+                    f'**{record.pet.name}** {record.pet.rarity.emoji}',
+                    _format_entry(record),
+                ),
+                # accessory=discord.ui.Thumbnail(media=image_url_from_emoji(record.pet.emoji)),
             ))
             self.add_item(ui.ActionRow().add_item(
                 StaticCommandButton(
@@ -844,15 +852,17 @@ class HuntView(UserView):  # CHANGE TO UserView
 
 
 def _format_entry(entry: PetRecord) -> str:
-    warning, exhaustion = (
-        ('', f'\n-# {Emojis.space} {Emojis.Expansion.standalone} Exhausts {format_dt(entry.exhausts_at, "R")}')
-        if entry.energy > 0 else ('\u26a0\ufe0f', '')
+    warning = (
+        f'(exhausts {format_dt(entry.exhausts_at, "R")})'
+        if entry.energy > 0 else '\u26a0\ufe0f'
     )
 
+    exp = Emojis.Expansion
     energy_pbar = progress_bar(entry.energy / entry.max_energy, length=6)
     return (
-        f'-# \u2728 {_format_level_data(entry)}\n'
-        f'-# {Emojis.bolt} {entry.energy:,}/{entry.max_energy:,} {energy_pbar} {warning}' + exhaustion
+        f'\u2728 {_format_level_data(entry)}\n'
+        f'{Emojis.space * 2}  {Emojis.bolt} {entry.energy:,}/{entry.max_energy:,} '
+        f'{energy_pbar} {warning}'
     )
 
 
@@ -1110,6 +1120,203 @@ class FeedView(UserView):
     @discord.ui.button(label='Feed Custom', style=discord.ButtonStyle.blurple, row=2)
     async def feed_custom(self, interaction: TypedInteraction, _) -> None:
         await interaction.response.send_modal(FeedCustomModal(self))
+
+
+from abc import ABC, abstractmethod  # TODO: migrate this to paginators
+
+
+class NavigableItem(ABC):
+    # Note: pages are zero-indexed, but max-pages is normal
+
+    @property
+    @abstractmethod
+    def max_pages(self) -> int:
+        """The maximum number of pages this item can have."""
+        raise NotImplementedError
+
+    @property
+    @abstractmethod
+    def current_page(self) -> int:
+        """The current page of this item."""
+        raise NotImplementedError
+
+    @abstractmethod
+    async def set_page(self, interaction: TypedInteraction, page: int) -> Any:
+        """Set the current page of this item."""
+        raise NotImplementedError
+
+
+class JumpToPageModal(ui.Modal):
+    page = ui.TextInput(
+        label='Page Number',
+        placeholder='...',
+        min_length=1,
+        max_length=4,
+        required=True,
+        style=discord.TextStyle.short,
+    )
+
+    def __init__(self, row: NavigationRow) -> None:
+        super().__init__(title='Jump to Page')
+        self.row: NavigationRow = row
+        self.target: NavigableItem = row.target
+        self.update()
+
+    def update(self) -> None:
+        self.page.placeholder = f'Enter the page you want to jump to (1-{self.target.max_pages})'
+
+    async def on_submit(self, interaction: TypedInteraction, /) -> Any:
+        try:
+            page = int(self.page.value) - 1  # Convert to zero-indexed
+        except ValueError:
+            return await interaction.response.send_message(
+                'Invalid page number. Please enter a valid integer.', ephemeral=True,
+            )
+
+        if not (0 <= page < self.target.max_pages):
+            return await interaction.response.send_message(
+                f'Page number must be between 1 and {self.target.max_pages}.', ephemeral=True,
+            )
+
+        await self.target.set_page(interaction, page)
+        self.row.update()
+
+
+class NavigationRow(ui.ActionRow):
+    def __init__(self, target: NavigableItem) -> None:
+        super().__init__()
+        self.target: NavigableItem = target
+
+    def update(self) -> None:
+        self.clear_items()
+        need_ff = self.target.max_pages <= 4  # Good enough threshold?
+
+        if need_ff:
+            self.add_item(self.first)
+            self.first.disabled = self.target.current_page == 0
+
+        self.previous.disabled = self.target.current_page == 0
+        self.last.disabled = self.target.current_page == self.target.max_pages - 1
+        self.add_item(self.previous).add_item(self.jump).add_item(self.next)
+
+        if need_ff:
+            self.add_item(self.last)
+            self.last.disabled = self.target.current_page == self.target.max_pages - 1
+
+    @ui.button(emoji=Emojis.Arrows.first)
+    async def first(self, interaction: TypedInteraction, _) -> None:
+        await self.target.set_page(interaction, 0)
+        self.update()
+
+    @ui.button(emoji=Emojis.Arrows.previous)
+    async def previous(self, interaction: TypedInteraction, _) -> None:
+        await self.target.set_page(interaction, max(0, self.target.current_page - 1))
+        self.update()
+
+    @ui.button(style=discord.ButtonStyle.primary)
+    async def jump(self, interaction: TypedInteraction, _) -> None:
+        modal = JumpToPageModal(self)
+        await interaction.response.send_modal(modal)
+
+    @ui.button(emoji=Emojis.Arrows.forward)
+    async def next(self, interaction: TypedInteraction, _) -> None:
+        await self.target.set_page(interaction, min(self.target.max_pages - 1, self.target.current_page + 1))
+        self.update()
+
+    @ui.button(emoji=Emojis.Arrows.last)
+    async def last(self, interaction: TypedInteraction, _) -> None:
+        await self.target.set_page(interaction, self.target.max_pages - 1)
+        self.update()
+
+
+class PetsAllContainer(ui.Container, NavigableItem):
+    PER_PAGE: int = 8
+    PETS_COUNT: int = sum(1 for _ in walk_collection(Pets, Pet))
+
+    def __init__(self, ctx: Context) -> None:
+        super().__init__()
+        self.ctx = ctx
+        self.page: int = 0
+        self._accent_color = Colors.secondary
+        self._nav: NavigationRow = NavigationRow(self)
+
+    async def prepare(self) -> None:
+        self.record: UserRecord = await self.ctx.fetch_author_record()
+        self.pets: PetManager = await self.record.pet_manager.wait()
+        self.update()
+
+    @property
+    def max_pages(self) -> int:
+        return ceil(len(self.pets.cached) / self.PER_PAGE)
+
+    @property
+    def current_page(self) -> int:
+        return self.page
+
+    async def set_page(self, interaction: TypedInteraction, page: int) -> Any:
+        self.page = page
+        self.update()
+        await interaction.response.edit_message(view=self.view)
+
+    def update(self) -> None:
+        self.clear_items()
+        self.accent_color = self._accent_color
+
+        self.add_item(ui.TextDisplay(
+            f'### {self.ctx.author.name}\'s Discovered Pets\n'
+            f'-# You have discovered **{len(self.pets.cached)}** out of {self.PETS_COUNT} pets.'
+        ))
+
+        if not self.pets.cached:
+            hunt_mention = self.ctx.bot.tree.get_app_command('hunt').mention
+            self.add_item(ui.Separator())
+            self.add_item(ui.TextDisplay(
+                f'You haven\'t discovered any pets yet!\n'
+                f'Discover some pets using {hunt_mention} and then come back.'
+            ))
+            return
+
+        start_idx = self.page * self.PER_PAGE
+        pets = list(self.pets.cached.values())[start_idx:start_idx + self.PER_PAGE]
+
+        for i, entry in enumerate(pets):
+            self.add_item(ui.Separator(
+                spacing=discord.SeparatorSize.large if i == 0 else discord.SeparatorSize.small,
+                visible=i == 0,
+            ))
+            s = '' if entry.duplicates == 1 else 's'
+            xp = f'{entry.exp:,}/{entry.total_exp:,} XP'
+            self.add_item(ui.Section(
+                entry.pet.jumbo_display(
+                    f'**{entry.pet.name}** {entry.pet.rarity.emoji}',
+                    f'Level {entry.level:,} ({xp})  \u2022  {entry.duplicates:,} Duplicate{s}',
+                ),
+                accessory=StaticCommandButton(
+                    command=self.ctx.bot.get_command('pets info'),
+                    command_kwargs=dict(pet=entry.pet),
+                    label='Info',
+                    style=discord.ButtonStyle.secondary,
+                ),
+            ))
+
+        if self.max_pages > 1:
+            self._nav.update()
+            self.add_item(ui.Separator(spacing=discord.SeparatorSize.large)).add_item(self._nav)
+
+
+class PetsAllLayout(ui.LayoutView):
+    def __init__(self, ctx: Context) -> None:
+        super().__init__(timeout=300)
+        self.add_item(container := PetsAllContainer(ctx))
+        self.add_item(ui.ActionRow().add_item(StaticCommandButton(
+            command=ctx.bot.get_command('pets view'),
+            label='Manage Equipped Pets',
+            style=discord.ButtonStyle.primary,
+        )))
+        self.container = container
+
+    async def prepare(self) -> None:
+        await self.container.prepare()
 
 
 setup = PetsCog.simple_setup
