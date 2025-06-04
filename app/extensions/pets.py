@@ -1278,7 +1278,9 @@ class PetsAllContainer(ui.Container, NavigableItem):
             return
 
         start_idx = self.page * self.PER_PAGE
-        pets = sorted(self.pets.cached.values(), key=lambda p: p.pet.rarity)[start_idx:start_idx + self.PER_PAGE]
+        pets = sorted(self.pets.cached.values(), key=lambda p: p.pet.rarity, reverse=True)[
+           start_idx:start_idx + self.PER_PAGE
+       ]
 
         for i, entry in enumerate(pets):
             self.add_item(ui.Separator(
