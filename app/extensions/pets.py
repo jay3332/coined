@@ -1231,7 +1231,7 @@ class NavigationRow(ui.ActionRow):
 
 
 class PetsAllContainer(ui.Container, NavigableItem):
-    PER_PAGE: int = 8
+    PER_PAGE: int = 7
     PETS_COUNT: int = sum(1 for _ in walk_collection(Pets, Pet))
 
     def __init__(self, ctx: Context) -> None:
