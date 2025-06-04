@@ -1284,9 +1284,11 @@ class PetsAllContainer(ui.Container, NavigableItem):
             ))
             s = '' if entry.duplicates == 1 else 's'
             xp = f'{entry.exp:,}/{entry.total_exp:,} XP'
+            equipped = f' \u2014 Equipped' if entry.equipped else ''
+
             self.add_item(ui.Section(
                 entry.pet.jumbo_display(
-                    f'**{entry.pet.name}** {entry.pet.rarity.emoji}',
+                    f'**{entry.pet.name}** {entry.pet.rarity.emoji}{equipped}',
                     f'Level {entry.level:,} ({xp})  \u2022  {entry.duplicates:,} Duplicate{s}',
                 ),
                 accessory=StaticCommandButton(
