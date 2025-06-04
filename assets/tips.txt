@@ -3,8 +3,10 @@ You can run {{/help commands}} to see a list of all commands and their usage.
 Hunt for pets and raise them for boosts and abilities! {{/hunt}}
 Discover new layers of the Earth and obtain rare ores and relics by digging! {{/dig}}
 Vote for Coined to get free crates! {{/vote}}
+Eager to know when you can run commands again? Use {{/cooldowns}} to check your cooldowns.
 Run {{/cooldowns remind}} to be reminded when a cooldown is over.
 View your cumulative multipliers with {{/multiplier}}.
 There are {{/hourly}}, {{/daily}}, and {{/weekly}} rewards.
 Did you know we have a website? https://coined.jay3332.tech
 Receive notifications via your direct messages by enabling DM notifications! `.settings dm true`
+Customize your Coined experience by tweaking your {{/settings set}}.

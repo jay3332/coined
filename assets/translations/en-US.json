@@ -1,0 +1,781 @@
+{
+  "commands": {
+    "skills": {
+      "name": "skills",
+      "description": "View a dashboard of all of your skills, or information on a specific skill."
+    },
+    "skills_list": {
+      "name": "list",
+      "description": "View a list of all available skills"
+    },
+    "skills_view": {
+      "name": "view",
+      "description": "View information on a specific skill.",
+      "options": {
+        "skill": {
+          "name": "skill",
+          "description": "The skill to view information on."
+        }
+      }
+    },
+    "skills_buy": {
+      "name": "buy",
+      "description": "Purchase a skill.",
+      "options": {
+        "skill": {
+          "name": "skill",
+          "description": "The skill to buy."
+        }
+      }
+    },
+    "train": {
+      "name": "train",
+      "description": "Train a skill. You must have unlocked the skill first.",
+      "options": {
+        "skill": {
+          "name": "skill",
+          "description": "The skill to train."
+        }
+      }
+    },
+    "ping": {
+      "name": "ping",
+      "description": "Pong! Sends the bot's API latency."
+    },
+    "uptime": {
+      "name": "uptime",
+      "description": "Shows the bot's uptime."
+    },
+    "invite": {
+      "name": "invite",
+      "description": "Gives you a link to invite the bot to your server."
+    },
+    "vote": {
+      "name": "vote",
+      "description": "Gives you a link to vote for the bot on top.gg."
+    },
+    "settings": {
+      "name": "settings",
+      "description": "View your current settings and/or change them."
+    },
+    "settings_set": {
+      "name": "set",
+      "description": "View your current settings and/or change them.",
+      "options": {
+        "setting": {
+          "name": "setting",
+          "description": "\u2026"
+        },
+        "value": {
+          "name": "value",
+          "description": "\u2026"
+        }
+      }
+    },
+    "settings_prefix": {
+      "name": "prefix",
+      "description": "View your server's prefixes for traditional prefix commands."
+    },
+    "settings_prefix_list": {
+      "name": "list",
+      "description": "View your server's prefixes for traditional prefix commands."
+    },
+    "settings_prefix_add": {
+      "name": "add",
+      "description": "Add a prefix to your server's prefixes.",
+      "options": {
+        "prefix": {
+          "name": "prefix",
+          "description": "The prefix to add."
+        }
+      }
+    },
+    "settings_prefix_remove": {
+      "name": "remove",
+      "description": "Remove a prefix from your server's prefixes.",
+      "options": {
+        "prefix": {
+          "name": "prefix",
+          "description": "The prefix to remove."
+        }
+      }
+    },
+    "settings_prefix_clear": {
+      "name": "clear",
+      "description": "Clear all of your server's prefixes."
+    },
+    "settings_prefix_overwrite": {
+      "name": "overwrite",
+      "description": "Removes your server's previous prefixes and replaces them with the specified ones.",
+      "options": {
+        "prefix": {
+          "name": "prefix",
+          "description": "The new prefix."
+        }
+      }
+    },
+    "cooldowns": {
+      "name": "cooldowns",
+      "description": "View all pending cooldowns."
+    },
+    "cooldowns_list": {
+      "name": "list",
+      "description": "View all pending cooldowns."
+    },
+    "cooldowns_remind": {
+      "name": "remind",
+      "description": "Reminds you when a command is available to be used again.",
+      "options": {
+        "cmd": {
+          "name": "command",
+          "description": "The command to remind you about."
+        }
+      }
+    },
+    "help": {
+      "name": "help",
+      "description": "Learn how to use Coined."
+    },
+    "help_guide": {
+      "name": "guide",
+      "description": "Sends an in-depth guide on how to use this bot."
+    },
+    "help_commands": {
+      "name": "commands",
+      "description": "Browse the commands Coined has to offer.",
+      "options": {
+        "category": {
+          "name": "category",
+          "description": "The category to view commands from."
+        }
+      }
+    },
+    "help_command": {
+      "name": "command",
+      "description": "Learn more about a specific command.",
+      "options": {
+        "cmd": {
+          "name": "command",
+          "description": "The command to learn more about."
+        }
+      }
+    },
+    "withdraw": {
+      "name": "withdraw",
+      "description": "Withdraw coins from your bank.",
+      "options": {
+        "amount": {
+          "name": "amount",
+          "description": "The amount of coins to withdraw from your bank. Use \"all\" to withdraw all coins."
+        }
+      }
+    },
+    "deposit": {
+      "name": "deposit",
+      "description": "Deposit coins from your wallet into your bank.",
+      "options": {
+        "amount": {
+          "name": "amount",
+          "description": "The amount of coins to deposit into your bank. Use \"all\" to deposit all coins."
+        }
+      }
+    },
+    "shop": {
+      "name": "shop",
+      "description": "View the item shop, or view information on a specific item.",
+      "options": {
+        "item": {
+          "name": "item",
+          "description": "The item to view specific information on."
+        }
+      }
+    },
+    "buy": {
+      "name": "buy",
+      "description": "Buy items!",
+      "options": {
+        "item": {
+          "name": "item",
+          "description": "The item to purchase."
+        },
+        "quantity": {
+          "name": "quantity",
+          "description": "How many of the item to purchase. Use \"max\" to buy as many as possible."
+        }
+      }
+    },
+    "sell": {
+      "name": "sell",
+      "description": "Sell items from your inventory for coins.",
+      "options": {
+        "item": {
+          "name": "item",
+          "description": "The item to sell"
+        },
+        "quantity": {
+          "name": "quantity",
+          "description": "How many of the item to sell. Use \"all\" to sell all."
+        }
+      }
+    },
+    "sell-bulk": {
+      "name": "sell-bulk",
+      "description": "Sell items in your inventory in bulk by rarity and/or category.",
+      "options": {
+        "rarity": {
+          "name": "rarity",
+          "description": "The rarity of the items to sell. Defaults to common/uncommon/rare.",
+          "choices": {
+            "common": "Common",
+            "uncommon": "Uncommon",
+            "rare": "Rare",
+            "epic": "Epic",
+            "legendary": "Legendary",
+            "mythic": "Mythic",
+            "unobtainable": "Unobtainable"
+          }
+        },
+        "category": {
+          "name": "category",
+          "description": "The category of items to sell. See /help command sell-bulk for more information on defaults.",
+          "choices": {
+            "tool": "Tool",
+            "power_up": "Power_Up",
+            "fish": "Fish",
+            "wood": "Wood",
+            "crate": "Crate",
+            "collectible": "Collectible",
+            "worm": "Worm",
+            "ore": "Ore",
+            "crop": "Crop",
+            "harvest": "Harvest",
+            "net": "Net",
+            "dirt": "Dirt",
+            "miscellaneous": "Miscellaneous"
+          }
+        },
+        "keep_one": {
+          "name": "keep-one",
+          "description": "Whether to keep one of every item that would otherwise be sold."
+        }
+      }
+    },
+    "use": {
+      "name": "use",
+      "description": "Use the items you own!",
+      "options": {
+        "item": {
+          "name": "item",
+          "description": "The item to use"
+        },
+        "quantity": {
+          "name": "quantity",
+          "description": "How many of the item to use. Note that some items may not be usable in bulk."
+        }
+      }
+    },
+    "remove": {
+      "name": "remove",
+      "description": "Remove the effects of active items.",
+      "options": {
+        "item": {
+          "name": "item",
+          "description": "\u2026"
+        }
+      }
+    },
+    "backpacks": {
+      "name": "backpacks",
+      "description": "View the backpack shop and manage your backpacks."
+    },
+    "repair": {
+      "name": "repair",
+      "description": "Repair a repairable item at the repair shop.",
+      "options": {
+        "item": {
+          "name": "item",
+          "description": "\u2026"
+        }
+      }
+    },
+    "share": {
+      "name": "share",
+      "description": "Share coins or items from your inventory with another user.",
+      "options": {
+        "user": {
+          "name": "user",
+          "description": "The user to give coins or items to."
+        },
+        "quantity": {
+          "name": "quantity",
+          "description": "How many coins or how many of the item to share"
+        },
+        "item": {
+          "name": "item",
+          "description": "The item to share. If not provided, will share coins."
+        }
+      }
+    },
+    "drop": {
+      "name": "drop",
+      "description": "Drop coins or items from your inventory into the chat.",
+      "options": {
+        "quantity": {
+          "name": "quantity",
+          "description": "How many coins or how many of the item to drop"
+        },
+        "item": {
+          "name": "item",
+          "description": "The item to drop. If not provided, will drop coins."
+        }
+      }
+    },
+    "craft": {
+      "name": "craft",
+      "description": "Craft items from your inventory to make new ones!",
+      "options": {
+        "recipe": {
+          "name": "recipe",
+          "description": "\u2026"
+        }
+      }
+    },
+    "prestige": {
+      "name": "prestige",
+      "description": "Prestige and start over in exchange for long-term multipliers."
+    },
+    "beg": {
+      "name": "beg",
+      "description": "Beg for coins."
+    },
+    "invest": {
+      "name": "invest",
+      "description": "Invest your coins and potentially get more money.",
+      "options": {
+        "amount": {
+          "name": "amount",
+          "description": "\u2026"
+        }
+      }
+    },
+    "search": {
+      "name": "search",
+      "description": "Search for coins."
+    },
+    "crime": {
+      "name": "crime",
+      "description": "Commit a crime and hope for profit."
+    },
+    "fish": {
+      "name": "fish",
+      "description": "Use your fishing pole to fish for fish and sell them for profit!"
+    },
+    "dig": {
+      "name": "dig",
+      "description": "Dig up items from the ground and sell them for profit!"
+    },
+    "chop": {
+      "name": "chop",
+      "description": "Chop down trees for wood! Wood can be sold for profit, or used to craft many items."
+    },
+    "trivia": {
+      "name": "trivia",
+      "description": "Answer trivia questions to gain coins and intelligence!"
+    },
+    "dive": {
+      "name": "dive",
+      "description": "Dive underwater for treasure!"
+    },
+    "hourly": {
+      "name": "hourly",
+      "description": "Claim your hourly crate."
+    },
+    "daily": {
+      "name": "daily",
+      "description": "Claim your daily reward!"
+    },
+    "weekly": {
+      "name": "weekly",
+      "description": "Claim your weekly reward!"
+    },
+    "honey": {
+      "name": "honey",
+      "description": "Claim honey from your bee."
+    },
+    "milk": {
+      "name": "milk",
+      "description": "Claim milk from your cow."
+    },
+    "berries": {
+      "name": "berries",
+      "description": "Claim berries from your fox."
+    },
+    "rob": {
+      "name": "rob",
+      "description": "Attempt to rob someone of their coins!",
+      "options": {
+        "victim": {
+          "name": "victim",
+          "description": "The victim of your robbery."
+        }
+      }
+    },
+    "roll": {
+      "name": "roll",
+      "description": "You and I each will roll a pair of dice. The one with the higher sum wins!",
+      "options": {
+        "bet": {
+          "name": "bet",
+          "description": "The amount of coins to bet. Must be between 200 and 500,000. Use \"max\" to bet as many coins as\u2026"
+        }
+      }
+    },
+    "slots": {
+      "name": "slots",
+      "description": "Spin the slot machine and earn coins for matching symbols!",
+      "options": {
+        "bet": {
+          "name": "bet",
+          "description": "The amount of coins to bet. Must be between 200 and 500,000. Use \"max\" to bet as many coins as\u2026"
+        }
+      }
+    },
+    "scratch": {
+      "name": "scratch",
+      "description": "Scratch a scratch-off ticket and hope for profit.",
+      "options": {
+        "bet": {
+          "name": "bet",
+          "description": "The amount of coins to bet. Must be between 500 and 500,000. Use \"max\" to bet as many coins as\u2026"
+        }
+      }
+    },
+    "blackjack": {
+      "name": "blackjack",
+      "description": "Bet your coins in a game of Blackjack.",
+      "options": {
+        "bet": {
+          "name": "bet",
+          "description": "The amount of coins to bet. Must be between 500 and 500,000. Use \"max\" to bet as many coins as\u2026"
+        }
+      }
+    },
+    "mines": {
+      "name": "mines",
+      "description": "Win big by collecting as many gems as possible without hitting any mines.",
+      "options": {
+        "bet": {
+          "name": "bet",
+          "description": "The amount of coins to bet. Must be between 100 and 500,000. Use \"max\" to bet as many coins as\u2026"
+        },
+        "size": {
+          "name": "size",
+          "description": "The size of the grid (you will get a NxN grid). Defaults to 4."
+        },
+        "mines": {
+          "name": "mines",
+          "description": "The number of mines planted. Must be less than (size * size). Defaults to 1."
+        }
+      }
+    },
+    "poker": {
+      "name": "poker",
+      "description": "Play a game of Texas Hold'em Poker with your friends.",
+      "options": {
+        "buy_in": {
+          "name": "buy_in",
+          "description": "The amount of coins the players should start with. Must be between 500 and 500,000."
+        },
+        "small_blind": {
+          "name": "small_blind",
+          "description": "The amount of coins the small blind should be. Must be between 10 and 5,000"
+        },
+        "big_blind": {
+          "name": "big_blind",
+          "description": "The amount of coins the big blind should be. Must be between 20 and 10,000"
+        }
+      }
+    },
+    "work": {
+      "name": "work",
+      "description": "Work your job and earn some money."
+    },
+    "work_start": {
+      "name": "start",
+      "description": "Work your job and earn some money."
+    },
+    "work_view": {
+      "name": "view",
+      "description": "View information regarding your current job."
+    },
+    "work_list": {
+      "name": "list",
+      "description": "View available job offerings."
+    },
+    "work_info": {
+      "name": "info",
+      "description": "See details about a specific job.",
+      "options": {
+        "job": {
+          "name": "job",
+          "description": "\u2026"
+        }
+      }
+    },
+    "work_apply": {
+      "name": "apply",
+      "description": "Apply for a new job.",
+      "options": {
+        "job": {
+          "name": "job",
+          "description": "The job you want to apply for."
+        }
+      }
+    },
+    "work_resign": {
+      "name": "resign",
+      "description": "Resign from your current job."
+    },
+    "hunt": {
+      "name": "hunt",
+      "description": "Hunt for animals, catch them, and raise them as pets for special powers!"
+    },
+    "pets": {
+      "name": "pets",
+      "description": "View and manage equipped pets."
+    },
+    "pets_view": {
+      "name": "view",
+      "description": "View and manage equipped pets."
+    },
+    "pets_all": {
+      "name": "all",
+      "description": "List all discovered pets."
+    },
+    "pets_info": {
+      "name": "info",
+      "description": "View information on a particular pet.",
+      "options": {
+        "pet": {
+          "name": "pet",
+          "description": "The pet to view information on."
+        }
+      }
+    },
+    "pets_equip": {
+      "name": "equip",
+      "description": "Equip a pet. This will activate its effects and abilities.",
+      "options": {
+        "pet": {
+          "name": "pet",
+          "description": "The pet to equip."
+        }
+      }
+    },
+    "pets_unequip": {
+      "name": "unequip",
+      "description": "Unequip a pet. This will remove its effects and abilities.",
+      "options": {
+        "pet": {
+          "name": "pet",
+          "description": "The pet to unequip."
+        }
+      }
+    },
+    "pets_swap": {
+      "name": "swap",
+      "description": "Swap an equipped pet with an unequipped pet.",
+      "options": {
+        "to_unequip": {
+          "name": "to_unequip",
+          "description": "The pet to unequip and replace."
+        },
+        "to_equip": {
+          "name": "to_equip",
+          "description": "The pet to equip."
+        }
+      }
+    },
+    "feed": {
+      "name": "feed",
+      "description": "Feed a pet food to give it energy.",
+      "options": {
+        "pet": {
+          "name": "pet",
+          "description": "The pet to feed."
+        }
+      }
+    },
+    "balance": {
+      "name": "balance",
+      "description": "View your wallet and bank balance, or optionally, someone elses.",
+      "options": {
+        "user": {
+          "name": "user",
+          "description": "The user to view the balance of."
+        }
+      }
+    },
+    "level": {
+      "name": "level",
+      "description": "View your current level and experience, or optionally, someone elses.",
+      "options": {
+        "user": {
+          "name": "user",
+          "description": "The user to view the level of."
+        }
+      }
+    },
+    "multiplier": {
+      "name": "multiplier",
+      "description": "View a detailed breakdown of all multipliers."
+    },
+    "leaderboard": {
+      "name": "leaderboard",
+      "description": "View the richest people in terms of coins (or level) in your server.",
+      "options": {
+        "sort_by": {
+          "name": "sort_by",
+          "description": "Sorts by this field (default: Wallet)",
+          "choices": {
+            "wallet": "Wallet",
+            "bank": "Bank",
+            "total_coins": "Total",
+            "total_exp": "Level/EXP",
+            "votes_this_month": "Votes this Month",
+            "deepest_dig": "Deepest Dig"
+          }
+        },
+        "is_global": {
+          "name": "global",
+          "description": "Whether to show the global leaderboard instead of the server leaderboard."
+        }
+      }
+    },
+    "inventory": {
+      "name": "inventory",
+      "description": "View your inventory, or optionally, someone elses.",
+      "options": {
+        "user": {
+          "name": "user",
+          "description": "The user to view the inventory of."
+        }
+      }
+    },
+    "book": {
+      "name": "book",
+      "description": "View a summary of all unique items you have discovered (and what you are missing).",
+      "options": {
+        "rarity": {
+          "name": "rarity",
+          "description": "Show only items of this rarity.",
+          "choices": {
+            "Common": "Common",
+            "Uncommon": "Uncommon",
+            "Rare": "Rare",
+            "Epic": "Epic",
+            "Legendary": "Legendary",
+            "Mythic": "Mythic"
+          }
+        },
+        "category": {
+          "name": "category",
+          "description": "Show only items from this category.",
+          "choices": {
+            "tool": "Tool",
+            "power_up": "Power_Up",
+            "fish": "Fish",
+            "wood": "Wood",
+            "crate": "Crate",
+            "collectible": "Collectible",
+            "worm": "Worm",
+            "ore": "Ore",
+            "crop": "Crop",
+            "harvest": "Harvest",
+            "net": "Net",
+            "dirt": "Dirt",
+            "miscellaneous": "Miscellaneous"
+          }
+        }
+      }
+    },
+    "notifications": {
+      "name": "notifications",
+      "description": "View your notifications."
+    },
+    "notifications_list": {
+      "name": "list",
+      "description": "View your notifications."
+    },
+    "notifications_view": {
+      "name": "view",
+      "description": "View information on a specific notification.",
+      "options": {
+        "index": {
+          "name": "index",
+          "description": "The index of the notification to view."
+        }
+      }
+    },
+    "notifications_clear": {
+      "name": "clear",
+      "description": "Clear all of your notifications."
+    },
+    "farm": {
+      "name": "farm",
+      "description": "View your farm and it's crops."
+    },
+    "farm_view": {
+      "name": "view",
+      "description": "View your farm and it's crops."
+    },
+    "farm_buy": {
+      "name": "buy",
+      "description": "Buy the area of land located at the given coordinate.",
+      "options": {
+        "coordinate": {
+          "name": "coordinate",
+          "description": "The location of the area of land you want to buy, e.g. \"A1\" or \"F6\"."
+        }
+      }
+    },
+    "farm_sell": {
+      "name": "sell",
+      "description": "Sell a patch of land you own for 1/5 it's original price back.",
+      "options": {
+        "coordinate": {
+          "name": "coordinate",
+          "description": "The location of the area of land you want to sell, e.g. \"A1\" or \"F6\"."
+        }
+      }
+    },
+    "farm_info": {
+      "name": "info",
+      "description": "View information about a crop or a specific crop at a specific coordinate.",
+      "options": {
+        "coordinate_or_crop": {
+          "name": "coordinate_or_crop",
+          "description": "The crop to view information on. Can be a specific crop (e.g. \"A1\") or a crop name (e.g. \"corn\")."
+        }
+      }
+    },
+    "plant": {
+      "name": "plant",
+      "description": "Plant a crop (or multiple) in your farm.",
+      "options": {
+        "coordinates": {
+          "name": "coordinates",
+          "description": "The coordinates to plant at. Can be a single coordinate (\"A1\") or multiple coordinates (\"A1 A2 A3\")."
+        },
+        "crop": {
+          "name": "crop",
+          "description": "The name of the crop to plant."
+        }
+      }
+    },
+    "harvest": {
+      "name": "harvest",
+      "description": "Harvest crops from your farm."
+    }
+  }
+}

@@ -21,6 +21,7 @@ from discord.ext.ipc import Server
 
 from app.core.cdn import CDNClient
 from app.core.help import HelpCommand
+from app.core.i18n import Translator
 from app.core.models import Command, Context, GroupCommand
 from app.core.timers import TimerManager
 from app.database import Database
@@ -322,6 +323,7 @@ class Bot(commands.Bot):
         self.loop.create_task(self._dispatch_first_ready())
         await self.ipc.start()
         await self._load_extensions()
+        await self.tree.set_translator(Translator(self))
         await self.tree.fetch_commands()  # populate cache
         self.backup.start()
 
