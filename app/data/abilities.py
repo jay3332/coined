@@ -197,7 +197,7 @@ class Abilities:
         type=AbilityType.attack,
         description='Karen demands to speak to the manager, distracting the player and lowering their accuracy.',
         effect='Applies a 50% accuracy debuff for the next 2 attacks from the player.',
-        emoji='<:karen:1141919669536694324>',
+        emoji='<:karen:1379664191492853935>',
         exclusive_to=[Ref('karen', RefType.enemy)],
     )
 
@@ -257,7 +257,7 @@ class Abilities:
         type=AbilityType.attack,
         description='Handcuffs the opponent, preventing them from attacking for the next turn.',
         effect='Prevents the opponent from attacking for the next turn.',
-        emoji='<:handcuffs:1142670902199341056>',
+        emoji='<:handcuffs:1379664189391634512>',
     )
 
     @handcuffs.callback
@@ -275,7 +275,7 @@ class Abilities:
         type=AbilityType.attack,
         description='Tases the opponent, dealing damage and lowering their defense.',
         effect='Deals a small amount of damage and applies a 25% defense debuff for the next 2 moves from the opponent.',
-        emoji='<:taser:1142672274487529473>',
+        emoji='<:taser:1379664204344328222>',
     )
 
     @taser.callback
@@ -315,7 +315,7 @@ class Abilities:
         type=AbilityType.attack,
         description='The dolphin emits a powerful high-pitched sonic wave, disorienting the player.',
         effect='Applies a 15% accuracy debuff for the next 3 attacks from the opponent.',
-        emoji='<:sonic_wave:1152977068901015616>',
+        emoji='<:sonic_wave:1379664200946942056>',
         exclusive_to=[Ref('dolphin', RefType.enemy)],
     )
 
@@ -335,7 +335,7 @@ class Abilities:
         type=AbilityType.attack,
         description='The dolphin uses its blowhole to spray water at the opponent, dealing damage.',
         effect='Deals a small amount of damage to the opponent.',
-        emoji='<:blowhole:1152998628076564521>',
+        emoji='<:blowhole:1379664181032128613>',
         exclusive_to=[Ref('dolphin', RefType.enemy)],
     )
 
@@ -353,7 +353,7 @@ class Abilities:
         type=AbilityType.attack,
         description='The shark lunges forward and bites the opponent; jaws snapping shut with immense force.',
         effect='Deals a large amount of damage and slowly removes a small amount of HP per turn for the next 3 turns due to bleeding.',
-        emoji='<:shark_bite:1152315697343500359>',
+        emoji='<:shark_bite:1379664198568513668>',
         exclusive_to=[Ref('shark', RefType.enemy)],
     )
 
@@ -379,7 +379,7 @@ class Abilities:
         type=AbilityType.attack,
         description='The shark\'s fins become razor-sharp, dealing damage and lowering the opponent\'s defense.',
         effect='Deals a small amount of damage and applies a 25% defense debuff for the next 2 moves from the opponent.',
-        emoji='<:serrated_fins:1152381247021142056>',
+        emoji='<:serrated_fins:1379664196647649442>',
         exclusive_to=[Ref('shark', RefType.enemy)],
     )
 
@@ -400,7 +400,7 @@ class Abilities:
         type=AbilityType.attack,
         description='The whale leaps out of the water and crashes down, causing a massive splash that stuns the opponent.',
         effect='Deals a medium amount of damage and applies a 25% damage debuff for the next attack from the opponent.',
-        emoji='<:mighty_splash:1152616775175909469>',
+        emoji='<:mighty_splash:1379664193476886610>',
         exclusive_to=[Ref('whale', RefType.enemy)],
     )
 
@@ -421,7 +421,7 @@ class Abilities:
         type=AbilityType.defense,
         description='The whale uses echolocation to find the opponent, making them easier to hit.',
         effect='Increases whale attack by 25% for its next 2 attacks.',
-        emoji='<:echolocation:1152616319825485864>',
+        emoji='<:echolocation:1379664183041327156>',
         exclusive_to=[Ref('whale', RefType.enemy)],
     )
 
@@ -441,7 +441,7 @@ class Abilities:
         type=AbilityType.attack,
         description='The whale summons a tidal wave to crash down on the opponent, dealing damage and stunning them.',
         effect='Deals a large amount of damage and applies a 50% accuracy debuff for the next attack from the opponent.',
-        emoji='<:tidal_surge:1153142496931631104>',
+        emoji='<:tidal_surge:1379664206567182347>',
         exclusive_to=[Ref('vibe_fish', RefType.enemy)],
     )
 
@@ -467,7 +467,7 @@ class Abilities:
         type=AbilityType.attack,
         description='Summons a whirlpool and electrifies it, causing damage over time.',
         effect='Slowly removes a medium amount of HP per turn for the next 3 turns due to electrocution.',
-        emoji='<:electric_whirlpool:1154193433037111336>',
+        emoji='<:electric_whirlpool:1379664185520295997>',
         exclusive_to=[Ref('vibe_fish', RefType.enemy)],  # TODO: and eel
     )
 
@@ -495,7 +495,7 @@ class Abilities:
             'dealing massive damage and stunning the opponent.'
         ),
         effect='Deals a massive amount of damage and suppresses the next attack from the opponent.',
-        emoji='<:vibe_blast:1153149316110749746>',
+        emoji='<:vibe_blast:1379664208966324374>',
         exclusive_to=[Ref('vibe_fish', RefType.enemy)],
     )
 

@@ -348,7 +348,7 @@ class Items:
         type=ItemType.tool,
         key='lifesaver',
         name='Lifesaver',
-        emoji='<:lifesaver:934608079947964447>',
+        emoji='<:lifesaver:1379661143059988572>',
         description='These quite literally save your life.',
         price=4200,
         buyable=True,
@@ -358,7 +358,7 @@ class Items:
         type=ItemType.tool,
         key='pistol',
         name='Pistol',
-        emoji='<:pistol:1134641571963338873>',
+        emoji='<:pistol:1379661168557424841>',
         brief='A quite deadly weapon that can be used to shoot and kill others.',
         description=(
             'A quite deadly weapon that can be used to shoot and kill others. We do not condone violence of any sort '
@@ -376,7 +376,7 @@ class Items:
         type=ItemType.tool,
         key='alcohol',
         name='Alcohol',
-        emoji='<:alcohol:1134641932178559027>',
+        emoji='<:alcohol:1379661014269952050>',
         brief='Intoxicate yourself with alcohol for two hours!',
         description=(
             'Intoxicate yourself with alcohol! Drinking alcohol will make you drunk for two hours.\n\nWhile drunk, you will:\n'
@@ -453,7 +453,7 @@ class Items:
             - a **+25%** gambling multiplier,
             - a **+15%** chance to successfully rob others, and
             - a **+15%** chance to successfully shoot others.
-            
+
             However, for these two hours, you will also be:
             - unable to work,
             - **20%** more susceptible to being robbed, and
@@ -492,7 +492,7 @@ class Items:
         type=ItemType.tool,
         key='padlock',
         name='Padlock',
-        emoji='<:padlock:785630994685755424>',
+        emoji='<:padlock:1379661160936374303>',
         description='Add a layer of protection to your wallet! When used, others will pay a fine when they try to rob you.',
         price=5000,
         buyable=True,
@@ -522,7 +522,7 @@ class Items:
         type=ItemType.miscellaneous,
         key='ban_hammer',
         name='Ban Hammer',
-        emoji='<:ban_hammer:1140106045176414298>',
+        emoji='<:ban_hammer:1379661030883590155>',
         description='A ban hammer, obtained from the Discord Mod job.',
         sell=1000,
         sellable=True,
@@ -532,7 +532,7 @@ class Items:
         type=ItemType.tool,
         key='camera',
         name='Camera',
-        emoji='<:camera:1140009247548121178>',
+        emoji='<:camera:1379661040337293408>',
         description='A camera, obtained from various jobs. Can be used to post videos online for profit.',
         sell=5000,
         sellable=True,
@@ -543,7 +543,7 @@ class Items:
         type=ItemType.tool,
         key='banknote',
         name='Banknote',
-        emoji='<:banknote:934913052174848040>',
+        emoji='<:banknote:1379661032661844069>',
         description='You can sell these for coins, or use these in order to expand your bank space. Gives between 1,500 to 3,500 bank space.',
         sell=10000,
         rarity=ItemRarity.uncommon,
@@ -577,7 +577,7 @@ class Items:
         key='cheese',
         name='Cheese',
         plural='Cheese',
-        emoji='<:cheese:937157036737724477>',
+        emoji='<:cheese:1379661048126373970>',
         description=(
             'A lucsious slice of cheese. Eating (using) these will increase your permanent EXP multiplier. '
             'There is a super small chance (2% per slice of cheese) you could die from lactose intolerance, though.'
@@ -656,7 +656,7 @@ class Items:
         type=ItemType.tool,
         key='cigarette',
         name='Cigarette',
-        emoji='<:cigarette:1133107777359847585>',
+        emoji='<:cigarette:1379661050734973113>',
         brief='A standard cigarette. Smoke these to temporarily get huge multipliers.',
         description=(
             'A standard cigarette. Smoking (using) these will give you a temporary +200% global EXP multiplier and +25% '
@@ -743,7 +743,7 @@ class Items:
         type=ItemType.miscellaneous,
         key='stick',
         name='Stick',
-        emoji='<:stick:939923767344394240>',
+        emoji='<:stick:1379661200857759764>',
         description='A stick. It\'s not very useful on it\'s own, but it can be used to craft other items. Although gainable from commands, you can manually craft these.',
         sell=100,
     )
@@ -752,7 +752,7 @@ class Items:
         type=ItemType.tool,
         key='axe',
         name='Axe',
-        emoji='<:axe:937880907946283058>',
+        emoji='<:axe:1379661025451704391>',
         description='Chop down trees using the `.chop` command to gain wood. You can sell wood, or save them for crafting!',
         price=10000,
         buyable=True,
@@ -766,7 +766,7 @@ class Items:
         type=ItemType.dirt,
         key='dirt',
         name='Dirt',
-        emoji='<:dirt:939297925283086396>',
+        emoji='<:dirt:1379661084776071288>',
         description='A chunk of dirt that was dug up from the ground.',
         sell=10,
         hp=1,
@@ -829,7 +829,7 @@ class Items:
     worm = Worm(
         key='worm',
         name='Worm',
-        emoji='<:worm:938575708580634634>',
+        emoji='<:worm:1379661232021180617>',
         description='The common worm. You can sell these or craft Fish Bait from these.',
         sell=100,
         energy=3,
@@ -839,7 +839,7 @@ class Items:
     gummy_worm = Worm(
         key='gummy_worm',
         name='Gummy Worm',
-        emoji='<:gummy_worm:939297088209055764>',
+        emoji='<:gummy_worm:1379661125817470996>',
         description='A gummy worm - at least it\'s better than a normal worm.',
         sell=250,
         energy=6,
@@ -850,7 +850,7 @@ class Items:
     earthworm = Worm(
         key='earthworm',
         name='Earthworm',
-        emoji='<:earthworm:939297155997392926>',
+        emoji='<:earthworm:1379661094674497707>',
         description='Quite literally an "earth" worm.',
         sell=500,
         energy=12,
@@ -861,7 +861,7 @@ class Items:
     hook_worm = Worm(
         key='hook_worm',
         name='Hook Worm',
-        emoji='<:hook_worm:939297533824467005>',
+        emoji='<:hook_worm:1379661129051144314>',
         description='hookworm',
         sell=1000,
         rarity=ItemRarity.uncommon,
@@ -873,7 +873,7 @@ class Items:
     poly_worm = Worm(
         key='poly_worm',
         name='Poly Worm',
-        emoji='<:poly_worm:939297587213787157>',
+        emoji='<:poly_worm:1379661170826285076>',
         description='A very colorful worm',
         sell=1500,
         rarity=ItemRarity.rare,
@@ -886,7 +886,7 @@ class Items:
         type=ItemType.collectible,
         key='ancient_relic',
         name='Ancient Relic',
-        emoji='<:ancient_relic:939304193934651402>',
+        emoji='<:ancient_relic:1379661018153881742>',
         description='An ancient relic originally from an unknown cave. It\'s probably somewhere in the ground, I don\'t know.',
         sell=25000,
         rarity=ItemRarity.mythic,
@@ -976,7 +976,7 @@ class Items:
         key='fish',
         name='Fish',
         plural='Fish',
-        emoji='<:fish:935002348361748491>',
+        emoji='<:fish:1379661106079076352>',
         description='A normal fish. Commonly found in the ocean.',
         sell=75,
         energy=3,
@@ -986,7 +986,7 @@ class Items:
         key='anchovy',
         name='Anchovy',
         plural='Anchovies',
-        emoji='<:anchovy:1153810370390143027>',
+        emoji='<:anchovy:1379661016392011796>',
         description='A small, common, yet nutrient-rich fish.',
         sell=100,
         energy=4,
@@ -995,7 +995,7 @@ class Items:
     sardine = Fish(
         key='sardine',
         name='Sardine',
-        emoji='<:sardine:935265248091451493>',
+        emoji='<:sardine:1379661184348848129>',
         description='A nutritious fish. They are small and easy to catch.',
         sell=100,
         energy=4,
@@ -1005,7 +1005,7 @@ class Items:
         key='catfish',
         name='Catfish',
         plural='Catfish',
-        emoji='<:catfish:1155175023770869860>',
+        emoji='<:catfish:1379661046196863107>',
         description='Catfish are bottom-dwelling fish with whisker-like barbels.',
         sell=125,
         energy=4,
@@ -1015,7 +1015,7 @@ class Items:
         key='clownfish',
         name='Clownfish',
         plural='Clownfish',
-        emoji='<:clownfish:1155174977608372265>',
+        emoji='<:clownfish:1379661054312714360>',
         description='These fish better stop clowning around!! \U0001f606 \U0001f606',
         sell=150,
         energy=5,
@@ -1025,7 +1025,7 @@ class Items:
         key='angel_fish',
         name='Angel Fish',
         plural='Angel Fish',
-        emoji='<:angel_fish:935265295000551475>',
+        emoji='<:angel_fish:1379661023333585007>',
         description='Angelfish are tropical freshwater fish that come in a variety of colors.',
         sell=200,
         energy=6,
@@ -1035,7 +1035,7 @@ class Items:
         key='goldfish',
         name='Goldfish',
         plural='Goldfish',
-        emoji='<:goldfish:1153859554040365056>',
+        emoji='<:goldfish:1379661122508165171>',
         description='Goldfish are a type of carp that are commonly kept as pets.',
         sell=250,
         energy=7,
@@ -1045,7 +1045,7 @@ class Items:
         key='blowfish',
         name='Blowfish',
         plural='Blowfish',
-        emoji='<:blowfish:935265366601498685>',
+        emoji='<:blowfish:1379661038269501512>',
         description='These are also known as pufferfish. These are caught in it\'s inflated form.',
         sell=350,
         energy=9,
@@ -1054,7 +1054,7 @@ class Items:
     crab = Fish(
         key='crab',
         name='Crab',
-        emoji='<:crab:935285322395299840>',
+        emoji='<:crab:1379661068418158743>',
         description='Crabs are crustaceans that are found in the ocean. Also the mascot of the Rust programming language.',
         rarity=ItemRarity.uncommon,
         sell=450,
@@ -1064,7 +1064,7 @@ class Items:
     turtle = Fish(
         key='turtle',
         name='Turtle',
-        emoji='<:turtle:1154555029605318727>',
+        emoji='<:turtle:1379661211536326766>',
         description='A sea turtle. They have a hard shell that protects them from predators.',
         rarity=ItemRarity.uncommon,
         sell=500,
@@ -1074,7 +1074,7 @@ class Items:
     lobster = Fish(
         key='lobster',
         name='Lobster',
-        emoji='<:lobster:935288666283212830>',
+        emoji='<:lobster:1379661148139421791>',
         description='Lobsters are large crustaceans that are found in the ocean.',
         rarity=ItemRarity.uncommon,
         sell=575,
@@ -1084,7 +1084,7 @@ class Items:
     squid = Fish(
         key='squid',
         name='Squid',
-        emoji='<:squid:1155335076389863555>',
+        emoji='<:squid:1379661198638714890>',
         description='Squidward Tentacles',
         rarity=ItemRarity.uncommon,
         sell=650,
@@ -1095,7 +1095,7 @@ class Items:
         key='octopus',
         name='Octopus',
         plural='Octopuses',
-        emoji='<:octopus:935292291143331900>',
+        emoji='<:octopus:1379661157694046260>',
         description='Octopuses have 3 hearts and 9 brains. And yes, that is the correct plural form of octopus.',
         rarity=ItemRarity.uncommon,
         sell=800,
@@ -1105,7 +1105,7 @@ class Items:
     seahorse = Fish(
         key='seahorse',
         name='Seahorse',
-        emoji='<:seahorse:1154192117485285407>',
+        emoji='<:seahorse:1379661187838509218>',
         description='Seahorses are known for their unique appearance. They have a horse-like head and swim vertically.',
         rarity=ItemRarity.rare,
         sell=1200,
@@ -1115,7 +1115,7 @@ class Items:
     legacy_axolotl = Fish(
         key='legacy_axolotl',
         name='Legacy Axolotl',
-        emoji='<:axolotl:935691745180667944>',
+        emoji='<:axolotl:1379661027284881450>',
         description='The old version of the axolotl when it was rarer. This is now unobtainable.',
         rarity=ItemRarity.unobtainable,
         sell=6000,
@@ -1125,7 +1125,7 @@ class Items:
     axolotl = Fish(
         key='axolotl',
         name='Axolotl',
-        emoji='<:axolotl:935691745180667944>',
+        emoji='<:axolotl:1379661027284881450>',
         description='The cool salamander',
         rarity=ItemRarity.rare,
         sell=1400,
@@ -1136,7 +1136,7 @@ class Items:
         key='jellyfish',
         name='Jellyfish',
         plural='Jellyfish',
-        emoji='<:jellyfish:1154427991951163554>',
+        emoji='<:jellyfish:1379661133451104348>',
         description='No eyes, no heart, no brain. Yet they still manage to defeat you',
         rarity=ItemRarity.rare,
         sell=1500,
@@ -1146,7 +1146,7 @@ class Items:
     dolphin = Fish(
         key='dolphin',
         name='Dolphin',
-        emoji='<:dolphin:935294203364245601>',
+        emoji='<:dolphin:1379661086671765647>',
         description='Dolphins are large aquatic mammals that are found in the ocean.',
         rarity=ItemRarity.rare,
         sell=1700,
@@ -1158,7 +1158,7 @@ class Items:
         key='swordfish',
         name='Swordfish',
         plural='Swordfish',
-        emoji='<:swordfish:1155275855602384958>',
+        emoji='<:swordfish:1379661204049367041>',
         description='Swordfish are large predatory fish with a long, flat bill shaped like a sword.',
         rarity=ItemRarity.rare,
         sell=1800,
@@ -1169,7 +1169,7 @@ class Items:
         key='siamese_fighting_fish',
         name='Siamese Fighting Fish',
         plural='Siamese Fighting Fish',
-        emoji='<:siamese_fighting_fish:1155982071345467493>',
+        emoji='<:siamese_fighting_fish:1379661192707969034>',
         description='Also known as betta fish, these are among the most popular freshwater aquarium fish.',
         rarity=ItemRarity.rare,
         sell=1900,
@@ -1179,7 +1179,7 @@ class Items:
     shark = Fish(
         key='shark',
         name='Shark',
-        emoji='<:shark:935301959949365249>',
+        emoji='<:shark:1379661190506221659>',
         description='Sharks are large predatory fish that are found in the ocean.',
         rarity=ItemRarity.rare,
         sell=2000,
@@ -1191,7 +1191,7 @@ class Items:
         key='rainbow_trout',
         name='Rainbow Trout',
         plural='Rainbow Trout',
-        emoji='<:rainbow_trout:1155335013093609542>',
+        emoji='<:rainbow_trout:1379661176065228993>',
         description='Colorful freshwater fish known for their virabnt hues.',
         rarity=ItemRarity.epic,
         sell=2300,
@@ -1201,7 +1201,7 @@ class Items:
     whale = Fish(
         key='whale',
         name='Whale',
-        emoji='<:whale:935305582846566410>',
+        emoji='<:whale:1379661224379416676>',
         description='Whales are huge mammals that swim deep in the ocean. How do you even manage to catch these?',
         rarity=ItemRarity.epic,
         sell=2500,
@@ -1223,7 +1223,7 @@ class Items:
     eel = Fish(
         key='eel',
         name='Eel',
-        emoji='<:eel:1133878774706995262>',
+        emoji='<:eel:1379661098394849310>',
         description='A long fish that is commonly found in the ocean. These are not obtainable from fishing.',
         rarity=ItemRarity.mythic,
         sell=35000,
@@ -1234,7 +1234,7 @@ class Items:
         type=ItemType.tool,
         key='fishing_pole',
         name='Fishing Pole',
-        emoji='<:fishing_pole:1154170469688283247>',
+        emoji='<:fishing_pole:1379661107886555198>',
         description=(
             'Owning this will grant you access to more fish and better luck in the `fish` command - '
             'fish for fish and sell them for profit!'
@@ -1251,7 +1251,7 @@ class Items:
         type=ItemType.tool,
         key='durable_fishing_pole',
         name='Durable Fishing Pole',
-        emoji='<:durable_fishing_pole:1154575940203069470>',
+        emoji='<:durable_fishing_pole:1379661090215956490>',
         rarity=ItemRarity.rare,
         description='A fishing pole that is more durable than the regular fishing pole.',
         price=30000,
@@ -1265,7 +1265,7 @@ class Items:
         type=ItemType.tool,
         key='golden_fishing_pole',
         name='Golden Fishing Pole',
-        emoji='<:golden_fishing_pole:1154605742968537139>',
+        emoji='<:golden_fishing_pole:1379661118653337750>',
         rarity=ItemRarity.legendary,
         description='It\'s golden...',
         price=100000,
@@ -1279,7 +1279,7 @@ class Items:
         type=ItemType.tool,
         key='diamond_fishing_pole',
         name='Diamond Fishing Pole',
-        emoji='<:diamond_fishing_pole:1154744323020177418>',
+        emoji='<:diamond_fishing_pole:1379661079252308058>',
         rarity=ItemRarity.mythic,
         description='A fishing pole made out of pure diamond.',
         price=1000000,
@@ -1303,7 +1303,7 @@ class Items:
         key='wood',
         name='Wood',
         plural='Wood',
-        emoji='<:wood:937881094563463208>',
+        emoji='<:wood:1379661229693337651>',
         description='The most abundant type of wood.',
         sell=30,
     )
@@ -1312,7 +1312,7 @@ class Items:
         key='redwood',
         name='Redwood',
         plural='Redwood',
-        emoji='<:redwood:937893043342815282>',
+        emoji='<:redwood:1379661182667063437>',
         description='Only found from Redwood trees whose lifespan is one of the longest.',
         sell=100,
     )
@@ -1321,7 +1321,7 @@ class Items:
         key='blackwood',
         name='Blackwood',
         plural='Blackwood',
-        emoji='<:blackwood:937895087969566771>',
+        emoji='<:blackwood:1379661034867916820>',
         description='A rare type of wood',
         rarity=ItemRarity.uncommon,
         sell=1000,
@@ -1331,7 +1331,7 @@ class Items:
         key='iron',
         name='Iron',
         plural='Iron',
-        emoji='<:iron:939598222408712202>',
+        emoji='<:iron:1379661131315937300>',
         description='A common metal mined from the ground.',
         sell=60,
         hp=2,
@@ -1341,7 +1341,7 @@ class Items:
         key='copper',
         name='Copper',
         plural='Copper',
-        emoji='<:copper:939598531432448080>',
+        emoji='<:copper:1379661056250740898>',
         description='A soft metal with high thermal and electrial conductivity.',
         sell=200,
         hp=4,
@@ -1351,7 +1351,7 @@ class Items:
         key='silver',
         name='Silver',
         plural='Silver',
-        emoji='<:silver:939599550027542578>',
+        emoji='<:silver:1379661195879120907>',
         description='A shiny, lustrous metal with the highest thermal and electrical conductivity of any metal.',
         rarity=ItemRarity.uncommon,
         sell=400,
@@ -1362,7 +1362,7 @@ class Items:
         key='gold',
         name='Gold',
         plural='Gold',
-        emoji='<:gold:939600989474918471>',
+        emoji='<:gold:1379661116476493918>',
         description='A bright, dense, and popular metal.',
         rarity=ItemRarity.rare,
         sell=900,
@@ -1373,7 +1373,7 @@ class Items:
         key='obsidian',
         name='Obsidian',
         plural='Obsidian',
-        emoji='<:obsidian:939604204346019950>',
+        emoji='<:obsidian:1379661155320205312>',
         description='A volcanic, glassy mineral formed from the rapid cooling of felsic lava.',
         rarity=ItemRarity.rare,
         sell=1250,
@@ -1385,7 +1385,7 @@ class Items:
         key='emerald',
         name='Emerald',
         plural='Emerald',
-        emoji='<:emerald:939603191115448370>',
+        emoji='<:emerald:1379661100370628662>',
         description='A valuable green gemstone.',
         rarity=ItemRarity.epic,
         sell=2000,
@@ -1397,7 +1397,7 @@ class Items:
         key='diamond',
         name='Diamond',
         plural='Diamond',
-        emoji='<:diamond:939601998867746848>',
+        emoji='<:diamond:1379661076890648598>',
         description='A super-hard mineral known for being extremely expensive.',
         rarity=ItemRarity.legendary,
         sell=5000,
@@ -1409,7 +1409,7 @@ class Items:
         type=ItemType.tool,
         key='pickaxe',
         name='Pickaxe',
-        emoji='<:pickaxe:939598952284692520>',
+        emoji='<:pickaxe:1379661165449183442>',
         description='Allows you to mine ores while digging (`.dig`). You can sell these ores for profit, and use some in crafting.',
         price=10000,
         buyable=True,
@@ -1420,7 +1420,7 @@ class Items:
         type=ItemType.tool,
         key='durable_pickaxe',
         name='Durable Pickaxe',
-        emoji='<:durable_pickaxe:939681326896930856>',
+        emoji='<:durable_pickaxe:1379661092715761697>',
         description='A durable, re-enforced pickaxe. Able to find rare ores more commonly than a normal pickaxe. This item must be crafted.',
         rarity=ItemRarity.rare,
         sell=30000,
@@ -1431,7 +1431,7 @@ class Items:
         type=ItemType.tool,
         key='diamond_pickaxe',
         name='Diamond Pickaxe',
-        emoji='<:diamond_pickaxe:939683191785148476>',
+        emoji='<:diamond_pickaxe:1379661081273700402>',
         description='A pickaxe made of pure diamond. This pickaxe is better than both the normal and durable pickaxes. This item must be crafted.',
         rarity=ItemRarity.legendary,
         sell=200000,
@@ -1478,7 +1478,7 @@ class Items:
     common_crate = Crate(
         key='common_crate',
         name='Common Crate',
-        emoji='<:crate:938163970248966165>',
+        emoji='<:crate:1379661070792261682>',
         description='The most common type of crate.',
         price=200,
         metadata=CrateMetadata(
@@ -1495,7 +1495,7 @@ class Items:
     uncommon_crate = Crate(
         key='uncommon_crate',
         name='Uncommon Crate',
-        emoji='<:uncommon_crate:938165259301171310>',
+        emoji='<:uncommon_crate:1379661213612380170>',
         description='A slightly more common type of crate.',
         price=500,
         metadata=CrateMetadata(
@@ -1515,7 +1515,7 @@ class Items:
     rare_crate = Crate(
         key='rare_crate',
         name='Rare Crate',
-        emoji='<:rare_crate:938558029425700926>',
+        emoji='<:rare_crate:1379661180410269706>',
         description='A pretty rare crate.',
         price=2000,
         metadata=CrateMetadata(
@@ -1537,7 +1537,7 @@ class Items:
     voting_crate = Crate(
         key='voting_crate',
         name='Voting Crate',
-        emoji='<:votingcrate:1139250072731791470>',
+        emoji='<:voting_crate:1379661219811688600>',
         description='A crate that can be obtained by [voting for the bot](https://top.gg/bot/753017377922482248).',
         price=4000,
         metadata=CrateMetadata(
@@ -1559,7 +1559,7 @@ class Items:
     epic_crate = Crate(
         key='epic_crate',
         name='Epic Crate',
-        emoji='<:epic_crate:938558716242976798>',
+        emoji='<:epic_crate:1379661103000195212>',
         description='A pretty epic crate.',
         price=6000,
         metadata=CrateMetadata(
@@ -1584,7 +1584,7 @@ class Items:
     legendary_crate = Crate(
         key='legendary_crate',
         name='Legendary Crate',
-        emoji='<:legendary_crate:940383830177615952>',
+        emoji='<:legendary_crate:1379661136470741114>',
         description='A pretty legendary crate.',
         price=25000,
         metadata=CrateMetadata(
@@ -1612,7 +1612,7 @@ class Items:
     mythic_crate = Crate(
         key='mythic_crate',
         name='Mythic Crate',
-        emoji='<:mythic_crate:940385942080991302>',
+        emoji='<:mythic_crate:1379661152333725807>',
         description='A pretty mythic crate.',
         price=60000,
         metadata=CrateMetadata(
@@ -1730,7 +1730,7 @@ class Items:
         type=ItemType.tool,
         key='cup',
         name='Cup',
-        emoji='<:cup:941091217993769031>',
+        emoji='<:cup:1379661072830693518>',
         description='A cup that can hold liquid. Relatively cheap.',
         price=50,
         buyable=True
@@ -1740,7 +1740,7 @@ class Items:
         type=ItemType.tool,
         key='watering_can',
         name='Watering Can',
-        emoji='<:watering_can:941088588068683808>',
+        emoji='<:watering_can:1379661222080675891>',
         description='Use these to water your plants [crops], boosting their EXP.',
         price=1000,
         buyable=True,
@@ -1751,7 +1751,7 @@ class Items:
         key='glass_of_water',
         name='Glass of Water',
         plural='Glasses of Water',
-        emoji='<:glass_of_water:941090007412785173>',
+        emoji='<:glass_of_water:1379661114262159506>',
         description='Usually used for crafting, but can also be a refresher.',
         sell=1000,
     )
@@ -1760,7 +1760,7 @@ class Items:
         key='tomato',
         name='Tomato',
         plural='Tomatoes',
-        emoji='<:tomato:940794702175801444>',
+        emoji='<:tomato:1379661208508039188>',
         description='A regular tomato, grown from the tomato crop.',
         sell=50,
         energy=3,
@@ -1769,7 +1769,7 @@ class Items:
     tomato_crop = Crop(
         key='tomato_crop',
         name='Tomato Crop',
-        emoji='<:tomato:940794702175801444>',
+        emoji='<:tomato:1379661208508039188>',
         price=1200,
         metadata=CropMetadata(
             time=600,
@@ -1782,7 +1782,7 @@ class Items:
         key='wheat',
         name='Wheat',
         plural='Wheat',
-        emoji='<:wheat:941089760317952020>',
+        emoji='<:wheat:1379661227675877426>',
         description='An ear of wheat, grown from the wheat crop.',
         sell=40,
         energy=3,
@@ -1791,7 +1791,7 @@ class Items:
     wheat_crop = Crop(
         key='wheat_crop',
         name='Wheat Crop',
-        emoji='<:wheat:941089760317952020>',
+        emoji='<:wheat:1379661227675877426>',
         price=1250,
         metadata=CropMetadata(
             time=600,
@@ -1803,7 +1803,7 @@ class Items:
     carrot = Harvest(
         key='carrot',
         name='Carrot',
-        emoji='<:carrot:941096334365175839>',
+        emoji='<:carrot:1379661042673647746>',
         description='A carrot, grown from the carrot crop.',
         sell=75,
         energy=3,
@@ -1812,7 +1812,7 @@ class Items:
     carrot_crop = Crop(
         key='carrot_crop',
         name='Carrot Crop',
-        emoji='<:carrot:941096334365175839>',
+        emoji='<:carrot:1379661042673647746>',
         price=2000,
         metadata=CropMetadata(
             time=800,
@@ -1825,7 +1825,7 @@ class Items:
         key='corn',
         name='Corn',
         plural='Corn',
-        emoji='<:corn:941097271544643594>',
+        emoji='<:corn:1379661060575072340>',
         description='An ear of corn, grown from the corn crop.',
         sell=75,
         energy=3,
@@ -1834,7 +1834,7 @@ class Items:
     corn_crop = Crop(
         key='corn_crop',
         name='Corn Crop',
-        emoji='<:corn:941097271544643594>',
+        emoji='<:corn:1379661060575072340>',
         price=2200,
         metadata=CropMetadata(
             time=800,
@@ -1847,7 +1847,7 @@ class Items:
         key='lettuce',
         name='Lettuce',
         plural='Lettuce',
-        emoji='<:lettuce:941136607594041344>',
+        emoji='<:lettuce:1379661140430160083>',
         description='A head of lettuce, grown from the lettuce crop.',
         sell=80,
         energy=3,
@@ -1856,7 +1856,7 @@ class Items:
     lettuce_crop = Crop(
         key='lettuce_crop',
         name='Lettuce Crop',
-        emoji='<:lettuce:941136607594041344>',
+        emoji='<:lettuce:1379661140430160083>',
         price=2400,
         metadata=CropMetadata(
             time=1200,
@@ -1869,7 +1869,7 @@ class Items:
         key='potato',
         name='Potato',
         plural='Potatoes',
-        emoji='<:potato:941139578226626682>',
+        emoji='<:potato:1379661174177796216>',
         description='A potato, grown from the potato crop.',
         sell=110,
         energy=3,
@@ -1878,7 +1878,7 @@ class Items:
     potato_crop = Crop(
         key='potato_crop',
         name='Potato Crop',
-        emoji='<:potato:941139578226626682>',
+        emoji='<:potato:1379661174177796216>',
         price=2800,
         metadata=CropMetadata(
             time=1500,
@@ -1891,7 +1891,7 @@ class Items:
         key='tobacco',
         name='Tobacco',
         plural='Tobacco',
-        emoji='<:tobacco:941445316765421688>',
+        emoji='<:tobacco:1379661206205366364>',
         description='A piece of tobacco, grown from the tobacco crop.',
         sell=125,
     )
@@ -1899,7 +1899,7 @@ class Items:
     tobacco_crop = Crop(
         key='tobacco_crop',
         name='Tobacco Crop',
-        emoji='<:tobacco:941445316765421688>',
+        emoji='<:tobacco:1379661206205366364>',
         price=3600,
         metadata=CropMetadata(
             time=1500,
@@ -1907,11 +1907,11 @@ class Items:
             item=tobacco,
         ),
     )
-    
+
     cotton_ball = Harvest(
         key='cotton_ball',
         name='Cotton Ball',
-        emoji='<:cottonball:1132871115014950964>',
+        emoji='<:cottonball:1379661064706461808>',
         description='A ball of cotton, grown from the cotton crop.',
         sell=150,
         metadata=HarvestMetadata(lambda: Items.cotton_crop),
@@ -1920,7 +1920,7 @@ class Items:
     cotton_crop = Crop(
         key='cotton_crop',
         name='Cotton Crop',
-        emoji='<:cotton:1132867001057030184>',
+        emoji='<:cotton:1379661062906843177>',
         price=4500,
         metadata=CropMetadata(
             time=1800,
@@ -1934,7 +1934,7 @@ class Items:
         key='flour',
         name='Flour',
         plural='Flour',
-        emoji='<:flour:941087131038797834>',
+        emoji='<:flour:1379661110239559741>',
         description='A bag of flour, used to make [craft] bakery products.',
         sell=100,
     )
@@ -1944,7 +1944,7 @@ class Items:
         key='loaf_of_bread',
         name='Loaf of Bread',
         plural='Loaves of Bread',
-        emoji='<:loaf_of_bread:941087632308457483>',
+        emoji='<:loaf_of_bread:1379661146373488700>',
         description='A normal loaf of wheat bread.',
         sell=500,
         rarity=ItemRarity.uncommon,
@@ -1992,7 +1992,7 @@ class Items:
         key='sheet_of_paper',
         name='Sheet of Paper',
         plural='Sheets of Paper',
-        emoji='<:paper:1133127585258291240>',
+        emoji='<:paper:1379661163234590783>',
         description='A sheet of paper.',
         sell=10000,
         rarity=ItemRarity.rare,
@@ -2002,7 +2002,7 @@ class Items:
         type=ItemType.collectible,
         key='voting_trophy',
         name='Voting Trophy',
-        emoji='<:voting_trophy:1145893579429007490>',
+        emoji='<:voting_trophy:1379661215688687667>',
         description='Obtained by accumulating 50 [votes](http://top.gg/bot/753017377922482248) within a calendar month. (/vote)',
         price=200000,
         rarity=ItemRarity.legendary,

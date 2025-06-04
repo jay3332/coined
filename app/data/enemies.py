@@ -37,7 +37,7 @@ class Enemies:
         key='karen',
         name='Karen',
         description='Yet another Karen throwing a fit in public. Where\'s the manager?',
-        emoji='<:karen:1141919669536694324>',
+        emoji='<:karen:1379664191492853935>',
         base_hp=100,
         abilities={
             Abilities.punch: 1.0,
@@ -51,7 +51,7 @@ class Enemies:
         key='cop',
         name='Cop',
         description="A cop who's had a bad day. He'll be there to arrest you if you don't watch out.",
-        emoji='<:cop:1142668034373341268>',
+        emoji='<:cop:1379664881820635146>',
         base_hp=100,
         abilities={
             Abilities.punch: 1.0,

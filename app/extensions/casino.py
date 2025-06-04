@@ -535,24 +535,24 @@ class SlotsCell(Enum):
 SLOTS_EMOJI_MAPPING: Final[dict[SlotsCell, str]] = {
     SlotsCell.coinhead: Items.coinhead.emoji,
     SlotsCell.spinning_coin: Items.spinning_coin.emoji,
-    SlotsCell.seven: '<:slots7:789609731765174322>',
-    SlotsCell.bell: '<:slotsBell:789860588922601523>',
-    SlotsCell.diamond: '<:slotsDiamond:789610008320671765>',
-    SlotsCell.clover: '<:slotsClover:789610044601270302>',
-    SlotsCell.cherry: '<:slotsCherry:789609966062796810>',
-    SlotsCell.watermelon: '<:slotsWatermelon:789610087647936562>',
-    SlotsCell.grape: '<:slotsGrape:789610124116361227>',
+    SlotsCell.seven: '<:slots_7:1379667368174948402>',
+    SlotsCell.bell: '<:slots_bell:1379667379918995536>',
+    SlotsCell.diamond: '<:slots_diamond:1379667353217798214>',
+    SlotsCell.clover: '<:slots_clover:1379667348499464252>',
+    SlotsCell.cherry: '<:slots_cherry:1379667390291247125>',
+    SlotsCell.watermelon: '<:slots_watermelon:1379667387464417363>',
+    SlotsCell.grape: '<:slots_grape:1379667377658007614>',
 }
 
 SLOTS_SPINNING_EMOJIS: Final[list[str]] = [
-    '<a:slots_spinning_1:1144672133809721476>',
-    '<a:slots_spinning_2:1144672143595012157>',
-    '<a:slots_spinning_3:1144672152944136312>',
-    '<a:slots_spinning_4:1144672162452615218>',
-    '<a:slots_spinning_5:1144672171944316928>',
-    '<a:slots_spinning_6:1144672181146619945>',
-    '<a:slots_spinning_7:1144672190650921000>',
-    '<a:slots_spinning_8:1144672199890964481>',
+    '<a:slots_spinning_1:1379667361551876158>',
+    '<a:slots_spinning_2:1379667373937660088>',
+    '<a:slots_spinning_3:1379667356594475188>',
+    '<a:slots_spinning_4:1379667359077236747>',
+    '<a:slots_spinning_5:1379667382028603473>',
+    '<a:slots_spinning_6:1379667351019982909>',
+    '<a:slots_spinning_7:1379667385392304229>',
+    '<a:slots_spinning_8:1379667370980806677>',
 ]
 
 SLOTS_TRIPLE_MULTIPLIERS: Final[dict[SlotsCell, int | float]] = {

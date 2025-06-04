@@ -49,8 +49,8 @@ class Skill(Cog):
                     'name': f'**{skill.display}** \u2014 {skill_record.points:,} Skill Point{s}',
                     'value': dedent(f"""
                         {skill.description}
-                        *{skill.benefit(skill_record.points)}*
-                        *Train this skill by running `{ctx.clean_prefix}train {skill.key}`.*
+                        -# {Emojis.Expansion.first} {skill.benefit(skill_record.points)}
+                        -# {Emojis.Expansion.last} *Train this skill by running `{ctx.clean_prefix}train {skill.key}`.*
                     """),
                     'inline': False,
                 })
@@ -58,8 +58,8 @@ class Skill(Cog):
                 fields.append({
                     'name': f'{skill.display} (Unlocked at Level {skill.level_unlocked})',
                     'value': (
-                        f'{skill.description}\n*{skill.benefit_per_point}*\n'
-                        '*You do not meet the level requirement to unlock this skill.*'
+                        f'{skill.description}\n-# {skill.benefit_per_point}\n'
+                        '-# *You do not meet the level requirement to unlock this skill.*'
                     ),
                     'inline': False
                 })
@@ -71,7 +71,7 @@ class Skill(Cog):
 
                 fields.append({
                     'name': f'{skill.display} (Unlock for {Emojis.coin} {skill.price:,})',
-                    'value': f'{skill.description}\n*{skill.benefit_per_point} per point*\n*{value}*',
+                    'value': f'{skill.description}\n-# {skill.benefit_per_point} per point\n-# *{value}*',
                     'inline': False,
                 })
 

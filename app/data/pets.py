@@ -89,7 +89,7 @@ class Pets:
     dog = Pet(
         name='Dog',
         key='dog',
-        emoji='<:dog:1134641292245205123>',
+        emoji='<:dog:1379662817308971105>',
         rarity=PetRarity.common,
         description="A descendant of the wolf and a man's best friend.",
         energy_per_minute=0.05,
@@ -103,7 +103,7 @@ class Pets:
     cat = Pet(
         name='Cat',
         key='cat',
-        emoji='<:cat:1134641341092089948>',
+        emoji='<:cat:1379662815299768361>',
         rarity=PetRarity.common,
         description='A small, domesticated, carnivorous mammal.',
         energy_per_minute=0.05,

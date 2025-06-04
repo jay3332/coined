@@ -72,9 +72,9 @@ async def unscramble(ctx: Context, embed: discord.Embed, job: Job) -> discord.Me
 
 
 STYLES = {
-    discord.ButtonStyle.primary: '<:blurple:1139915753739522201>',
-    discord.ButtonStyle.success: '<:green:1139915778628526212>',
-    discord.ButtonStyle.danger: '<:red:1139915793937727570>',
+    discord.ButtonStyle.primary: '<:blurple:1379663614947885088>',
+    discord.ButtonStyle.success: '<:green:1379663616684462133>',
+    discord.ButtonStyle.danger: '<:red:1379663620052484146>',
 }
 
 
@@ -296,7 +296,7 @@ class TicTacToeButton(discord.ui.Button['TicTacToe']):
         super().__init__(style=discord.ButtonStyle.secondary, label='\u200b', row=row)
         self.index = index
 
-    async def callback(self, interaction: TypedInteraction) -> None:
+    async def callback(self, interaction: TypedInteraction):
         board = self.view.board
         if board[self.index] != self.view.EMPTY:
             return await interaction.response.send_message(

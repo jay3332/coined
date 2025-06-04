@@ -83,7 +83,7 @@ class ItemTransformer(app_commands.Transformer):
         return [
             app_commands.Choice(name=item.name, value=item.key)
             for item in query_collection_many(Items, Item, value)
-        ]
+        ][:25]
 
 
 @converter
