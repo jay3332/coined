@@ -1283,7 +1283,7 @@ class PetsAllContainer(ui.Container, NavigableItem):
                 visible=i == 0,
             ))
             s = '' if entry.duplicates == 1 else 's'
-            xp = f'{entry.exp:,}/{entry.total_exp:,} XP'
+            xp = f'{entry.exp:,}/{entry.exp_requirement:,} XP'
             equipped = f' \u2014 Equipped' if entry.equipped else ''
 
             self.add_item(ui.Section(
