@@ -78,11 +78,12 @@ class Context(TypedContext):
         timeout: float = 60.,
         true: str = 'Yes',
         false: str = 'No',
-        replace_interaction: bool = False,
+        replace_interaction: bool | str = False,
         **kwargs,
     ) -> bool:
         user = user or self.author
         view = view or ConfirmationView(user=user, true=true, false=false, timeout=timeout)
+        edit = kwargs.pop('edit', True)
 
         if paginator is not None:
             view = paginator._underlying_view
@@ -101,13 +102,14 @@ class Context(TypedContext):
         if message is not None:
             if delete_after:
                 await message.delete(delay=0)
-            elif kwargs.pop('edit', True):
+            elif edit:
                 await message.edit(view=view)
         else:
             await interaction.edit_original_response(view=view)
 
-        if replace_interaction and interaction is None:
-            self.interaction = view.interaction
+        if replace_interaction:
+            attr = replace_interaction if isinstance(replace_interaction, str) else 'interaction'
+            setattr(self, attr, view.interaction)
 
         return getattr(view, '__confirm_value__', False)
 

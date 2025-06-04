@@ -342,7 +342,31 @@ class PetsCog(Cog, name='Pets'):
                 f'Max Energy: {Emojis.bolt} **{pet.max_energy:,}**'
             )
         )
-        return embed, REPLY
+
+        view = discord.ui.View()
+        if entry.equipped:
+            view.add_item(StaticCommandButton(
+                command=self.feed,
+                command_kwargs=dict(pet=pet),
+                label='Feed',
+                emoji=Emojis.bolt,
+                style=discord.ButtonStyle.primary,
+            ))
+            view.add_item(StaticCommandButton(
+                command=self.pets_unequip,  # type: ignore
+                command_kwargs=dict(pet=pet),
+                label='Unequip this Pet',
+                style=discord.ButtonStyle.danger,
+            ))
+        else:
+            view.add_item(StaticCommandButton(
+                command=self.pets_equip,  # type: ignore
+                command_kwargs=dict(pet=pet),
+                label='Equip this Pet',
+                style=discord.ButtonStyle.primary,
+            ))
+
+        return embed, view, REPLY
 
     @classmethod
     async def refresh_operations(cls, ctx: Context, record: UserRecord, operations: int, *, connection) -> str:
@@ -357,10 +381,15 @@ class PetsCog(Cog, name='Pets'):
     @pets.command(name='equip', aliases={'+', 'e', 'eq', 'activate', 'add'}, hybrid=True)
     @app_commands.describe(pet='The pet to equip.')
     @has_operations(1)
-    async def pets_equip(self, ctx: Context, *, pet: query_pet) -> CommandResponse:
+    async def pets_equip(self, ctx: Context, *, pet: query_pet = None) -> CommandResponse:
         """Equip a pet. This will activate its effects and abilities."""
         record = await ctx.db.get_user_record(ctx.author.id)
         pets = await record.pet_manager.wait()
+        if pet is None:
+            item = EquipPetSelect(ctx, record)
+            view = UserView(ctx.author, timeout=120).add_item(item)
+            return EquipMorePets.MESSAGE, view, REPLY
+
         if pet not in pets.cached:
             return f'You have not discovered a **{pet.display}** yet.', BAD_ARGUMENT
 
@@ -373,7 +402,7 @@ class PetsCog(Cog, name='Pets'):
             return (
                 f'You have filled all {record.max_equipped_pets} equipped pet slots.\n'
                 f'Use {swap_mention} to swap out a pet instead.'
-            ), REPLY
+            ), BAD_ARGUMENT
 
         async with ctx.db.acquire() as conn:
             await entry.update(equipped=True, connection=conn)
@@ -484,11 +513,15 @@ def _format_level_data(record: PetRecord) -> str:
 
 
 class EquipPetSelect(ui.Select):
-    def __init__(self, parent: ActivePetsContainer) -> None:
-        super().__init__(placeholder='Select pets to equip', min_values=0, max_values=parent.record.max_equipped_pets)
-        self.parent: ActivePetsContainer = parent
+    def __init__(self, ctx: Context, record: UserRecord, *, parent: ActivePetsContainer | None = None) -> None:
+        super().__init__(placeholder='Select pets to equip', min_values=0, max_values=record.max_equipped_pets)
 
-        for pet, record in self.parent.pets.cached.items():
+        self.ctx: Context = ctx
+        self.record: UserRecord = record
+        self.pets: PetManager = record.pet_manager
+        self.parent: ActivePetsContainer | None = parent
+
+        for pet, record in self.pets.cached.items():
             self.add_option(
                 label=pet.name,
                 emoji=pet.emoji,
@@ -497,12 +530,12 @@ class EquipPetSelect(ui.Select):
                 default=record.equipped,
             )
 
-        for i in range(max(0, 3 - len(self.parent.pets.cached))):  # fill empty slots
+        for i in range(max(0, 3 - len(self.pets.cached))):  # fill empty slots
             self.add_option(label='\u200b', value=f'null:{i}', default=False)
 
     async def callback(self, interaction: TypedInteraction) -> Any:
         values = set(get_by_key(Pets, key) for key in self.values if not key.startswith('null:'))
-        equipped = set(pet for pet, record in self.parent.pets.cached.items() if record.equipped)
+        equipped = set(pet for pet, record in self.pets.cached.items() if record.equipped)
 
         added = values - equipped
         removed = equipped - values
@@ -511,62 +544,76 @@ class EquipPetSelect(ui.Select):
         if operations == 0:
             return await interaction.response.send_message('No modifications made.', ephemeral=True)
 
-        expiry = self.parent.record.pet_operations_cooldown_start + PetsCog.PET_MAX_OPERATIONS_WINDOW
-        if self.parent.ctx.now <= expiry and self.parent.record.pet_operations + operations > PetsCog.PET_MAX_OPERATIONS_COUNT:
+        expiry = self.record.pet_operations_cooldown_start + PetsCog.PET_MAX_OPERATIONS_WINDOW
+        if self.ctx.now <= expiry and self.record.pet_operations + operations > PetsCog.PET_MAX_OPERATIONS_COUNT:
             return await interaction.response.send_message(
                 f'You have no more pet swaps remaining. They will replenish {format_dt(expiry, "R")}.',
                 ephemeral=True,
             )
 
         remaining = (
-            (PetsCog.PET_MAX_OPERATIONS_COUNT - self.parent.record.pet_operations)
+            (PetsCog.PET_MAX_OPERATIONS_COUNT - self.record.pet_operations)
             or PetsCog.PET_MAX_OPERATIONS_COUNT
         )
-        if not await self.parent.ctx.confirm(
+        if not await self.ctx.confirm(
             'Are you want sure you want to update your equipped pets?\n'
             f'This will cost you **{operations / 2}** pet swaps (you have {remaining / 2} remaining).',
             interaction=interaction,
             ephemeral=True,
+            edit=False,
             timeout=30,
+            replace_interaction='next_interaction',
         ):
             # if the user doesn't confirm, we need to reset the select menu
             self.view.clear_items()
             self.view.add_item(self)
-            return
+            return await getattr(self.ctx, 'next_interaction').response.edit_message(
+                content='Looks like we won\'t be swapping pets today.',
+                view=None,
+            )
 
-        cog: PetsCog = cast(self.parent.ctx.cog, PetsCog)
+        cog: PetsCog = cast(self.ctx.cog, PetsCog)
 
-        async with self.parent.ctx.db.acquire() as conn:
-            out = await cog.refresh_operations(self.parent.ctx, self.parent.record, operations, connection=conn)
+        async with self.ctx.db.acquire() as conn:
+            out = await cog.refresh_operations(self.ctx, self.record, operations, connection=conn)
             for pet in added:
-                await self.parent.pets.cached[pet].update(equipped=True, connection=conn)
+                await self.pets.cached[pet].update(equipped=True, connection=conn)
             for pet in removed:
-                await self.parent.pets.cached[pet].update(equipped=False, connection=conn)
+                await self.pets.cached[pet].update(equipped=False, connection=conn)
 
-        await self.parent.update()
+        if self.parent:
+            await self.parent.update()
         self.disabled = True
 
-        await interaction.edit_original_response(
-            content=f'Successfully updated your equipped pets using **{operations /2}** pet swaps.\n-# {out}\n',
-            view=None,
+        view = discord.ui.View().add_item(StaticCommandButton(
+            command=self.ctx.bot.get_command('pets view'),
+            label='View Equipped Pets',
+            style=discord.ButtonStyle.primary,
+        ))
+        await getattr(self.ctx, 'next_interaction').response.edit_message(
+            content=f'Successfully updated your equipped pets using **{operations / 2}** pet swaps.\n-# {out}\n',
+            view=view,
         )
-        await self.parent.ctx.maybe_edit(view=self.parent.view)
+        if self.parent:
+            await self.ctx.maybe_edit(view=self.parent.view)
 
 
 class EquipMorePets(discord.ui.Button):
+    MESSAGE = (
+        'Select the pets you want to equip or keep equipped.\n'
+        '-# **Note:** You are limited to set number of pet swaps every few hours. Choose wisely.'
+    )
+
     def __init__(self, container: 'ActivePetsContainer') -> None:
-        super().__init__(label='Equip More Pets', style=discord.ButtonStyle.primary)
+        super().__init__(label='Equip More Pets')
         self.container: ActivePetsContainer = container
 
     async def callback(self, interaction: TypedInteraction) -> None:
         self.original: discord.Message = interaction.message
-        view = discord.ui.View().add_item(EquipPetSelect(self.container))
-        await interaction.response.send_message(
-            'Select the pets you want to equip or keep equipped.\n'
-            '-# **Note:** You are limited to set number of pet swaps every few hours. Choose wisely.',
-            ephemeral=True,
-            view=view,
-        )
+        item = EquipPetSelect(self.container.ctx, self.container.record, parent=self.container)
+        view = discord.ui.View().add_item(item)
+
+        await interaction.response.send_message(self.MESSAGE, ephemeral=True, view=view)
 
 
 class UnequipButton(StaticCommandButton):
@@ -601,7 +648,7 @@ class ActivePetsContainer(ui.Container):
     def __init__(self, ctx: Context):
         super().__init__()
         self.ctx: Context = ctx
-        self._accent_color = Colors.primary
+        self._accent_color = None
 
     async def prepare(self) -> None:
         self.record: UserRecord = await self.ctx.fetch_author_record()
@@ -626,22 +673,24 @@ class ActivePetsContainer(ui.Container):
         self.accent_color = self._accent_color
         self.add_item(
             ui.Section(
-                f'## {self.ctx.author.display_name}\'s Equipped Pets',
+                f'### {self.ctx.author.display_name}\'s Equipped Pets',
                 f'-# You have equipped **{self.pets.equipped_count}**/{self.record.max_equipped_pets} pets.',
                 (
                     f'-# Use {equip_mention} to equip more pets.'
                     if self.pets.equipped_count < self.record.max_equipped_pets
                     else f'-# You have filled all pet slots! Unequip or {swap_mention} some pets.'
                 ),
-                accessory=ui.Thumbnail(media=self.ctx.author.display_avatar.url),
+                accessory=RefreshPetsButton(self),
             )
         )
 
         equipped = (pet for pet in self.pets.cached.values() if pet.equipped)
         for record in sorted(equipped, key=lambda entry: entry.pet.rarity.value, reverse=True):
             self.add_item(ui.Separator())
-            self.add_item(ui.TextDisplay(
-                f'### **{record.pet.display}** {record.pet.rarity.emoji}\n' + _format_entry(record)
+            self.add_item(ui.Section(
+                f'### **{record.pet.name}** {record.pet.rarity.emoji}',
+                _format_entry(record),
+                accessory=discord.ui.Thumbnail(media=image_url_from_emoji(record.pet.emoji)),
             ))
             self.add_item(ui.ActionRow().add_item(
                 StaticCommandButton(
@@ -664,7 +713,7 @@ class ActivePetsContainer(ui.Container):
         self.add_item(
             ui.ActionRow().add_item(
                 StaticCommandButton(command=self.ctx.bot.get_command('pets all'), label='View All Pets')
-            ).add_item(EquipMorePets(self)).add_item(RefreshPetsButton(self))
+            ).add_item(EquipMorePets(self))
         )
 
 
@@ -795,14 +844,15 @@ class HuntView(UserView):  # CHANGE TO UserView
 
 
 def _format_entry(entry: PetRecord) -> str:
-    expansion = Emojis.Expansion
-    exhaustion = (
-        f'(exhausts {format_dt(entry.exhausts_at, "R")})'
-        if entry.energy > 0 else '\u26a0\ufe0f'
+    warning, exhaustion = (
+        ('', f'\n-# {Emojis.space} {Emojis.Expansion.standalone} Exhausts {format_dt(entry.exhausts_at, "R")}')
+        if entry.energy > 0 else ('\u26a0\ufe0f', '')
     )
+
+    energy_pbar = progress_bar(entry.energy / entry.max_energy, length=6)
     return (
-        f'{expansion.first} \u2728 {_format_level_data(entry)}\n'
-        f'{expansion.last} {Emojis.bolt} {entry.energy:,}/{entry.max_energy:,} Energy {exhaustion}'
+        f'-# \u2728 {_format_level_data(entry)}\n'
+        f'-# {Emojis.bolt} {entry.energy:,}/{entry.max_energy:,} {energy_pbar} {warning}' + exhaustion
     )
 
 
