@@ -1179,7 +1179,6 @@ class JumpToPageModal(ui.Modal):
             )
 
         await self.target.set_page(interaction, page)
-        self.row.update()
 
 
 class NavigationRow(ui.ActionRow):
@@ -1207,12 +1206,10 @@ class NavigationRow(ui.ActionRow):
     @ui.button(emoji=Emojis.Arrows.first)
     async def first(self, interaction: TypedInteraction, _) -> None:
         await self.target.set_page(interaction, 0)
-        self.update()
 
     @ui.button(emoji=Emojis.Arrows.previous)
     async def previous(self, interaction: TypedInteraction, _) -> None:
         await self.target.set_page(interaction, max(0, self.target.current_page - 1))
-        self.update()
 
     @ui.button(style=discord.ButtonStyle.primary)
     async def jump(self, interaction: TypedInteraction, _) -> None:
@@ -1222,12 +1219,10 @@ class NavigationRow(ui.ActionRow):
     @ui.button(emoji=Emojis.Arrows.forward)
     async def next(self, interaction: TypedInteraction, _) -> None:
         await self.target.set_page(interaction, min(self.target.max_pages - 1, self.target.current_page + 1))
-        self.update()
 
     @ui.button(emoji=Emojis.Arrows.last)
     async def last(self, interaction: TypedInteraction, _) -> None:
         await self.target.set_page(interaction, self.target.max_pages - 1)
-        self.update()
 
 
 class PetsAllContainer(ui.Container, NavigableItem):
