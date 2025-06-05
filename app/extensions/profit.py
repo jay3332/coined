@@ -2362,6 +2362,7 @@ class QuestsView(discord.ui.LayoutView):
         await self._container.update()
 
 
+import math
 from app.extensions.pets import NavigableItem, NavigationRow  # TODO put into its own place
 
 
@@ -2383,7 +2384,7 @@ class QuestPassContainer(discord.ui.Container['QuestPassView'], NavigableItem):
 
     @property
     def max_pages(self) -> int:
-        return len(QUEST_PASS_REWARDS) // self.REWARDS_PER_PAGE
+        return math.ceil(len(QUEST_PASS_REWARDS) / self.REWARDS_PER_PAGE)
 
     async def set_page(self, itx: TypedInteraction, page: int):
         self.page = page
