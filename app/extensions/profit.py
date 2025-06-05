@@ -277,7 +277,7 @@ class Profit(Cog):
 
         return s[0].upper() + s[1:]
 
-    _SHORTCUT_CANDIDATES: list[str] = ['beg', 'search', 'hunt', 'trivia', 'fish', 'dig']
+    _SHORTCUT_CANDIDATES: list[str] = ['beg', 'search', 'hunt', 'trivia', 'fish', 'dig', 'quests']
     _COOLDOWN_ONLY_CANDIDATES: list[str] = ['hourly', 'daily', 'weekly']
     _TOOL_MAPPING: dict[Item | tuple[Item, ...], str] = {
         Items.axe: 'chop',
@@ -2424,7 +2424,7 @@ class QuestPassContainer(discord.ui.Container['QuestPassView'], NavigableItem):
             if reward is None:
                 continue
             self.add_item(discord.ui.TextDisplay(
-                f'**Tier {i}** \u2014 {Emojis.ticket} {QUEST_PASS_CURVE.total_exp_needed_to_complete(i):,} total tickets\n'
+                f'**Tier {i}** \u2014 {Emojis.ticket} {QUEST_PASS_CURVE.total_exp_needed_to_complete(i - 1):,} total tickets\n'
                 f'{Emojis.Expansion.standalone} {reward.short}'
             ))
 
