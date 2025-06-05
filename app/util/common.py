@@ -122,7 +122,7 @@ class BaseCurve:
     def __call__(self, level: int) -> int:
         return self.requirement_for(level)
 
-    def total_exp_for(self, level: int, /) -> int:
+    def total_exp_needed_to_complete(self, level: int, /) -> int:
         if level < 0:
             return 0
         if level < self.memoize_to:
@@ -135,10 +135,10 @@ class BaseCurve:
 
     def _compute_level_linear(self, exp: int, *, start: int = 0) -> tuple[int, int, int]:
         level = start
-        while self.total_exp_for(level) <= exp:
+        while self.total_exp_needed_to_complete(level) <= exp:
             level += 1
 
-        exp -= self.total_exp_for(level - 1)
+        exp -= self.total_exp_needed_to_complete(level - 1)
         requirement = self.requirement_for(level)
         return level, exp, requirement
 
@@ -150,7 +150,7 @@ class BaseCurve:
             return self._compute_level_linear(exp, start=len(self._sums) - 1)
 
         level = bisect(self._sums, exp)
-        exp -= self.total_exp_for(level - 1)
+        exp -= self.total_exp_needed_to_complete(level - 1)
         requirement = self.requirement_for(level)
         return level, exp, requirement
 
@@ -163,6 +163,7 @@ class CubicCurve(BaseCurve):
         a: float = 0,
         b: float = 0,
         c: float = 0,
+        d: float = 0,
         *,
         threshold: float | None = None,
         **kwargs,
@@ -170,19 +171,25 @@ class CubicCurve(BaseCurve):
         self.a: float = a
         self.b: float = b
         self.c: float = c
+        self.d: float = d
         self.threshold: float = threshold
         super().__init__(**kwargs)
 
     @property
     def solve_threshold(self) -> float:
+        if self.d:
+            return self.d
         return (self.a + self.b + self.c) / 2 if self.threshold is None else self.threshold
 
     def unrounded(self, x: float) -> float:
-        return max(self.solve_threshold, self.a * x ** 3 + self.b * x ** 2 + self.c * x)
+        return max(self.solve_threshold, self.a * x ** 3 + self.b * x ** 2 + self.c * x + self.d)
 
     @classmethod
     def default(cls) -> Self:
         return cls(0.25, 11.75, 88)
+
+    def __repr__(self) -> str:
+        return f"CubicCurve(a={self.a}, b={self.b}, c={self.c}, d={self.d} threshold={self.threshold})"
 
 
 class ExponentialCurve(BaseCurve):
@@ -195,6 +202,9 @@ class ExponentialCurve(BaseCurve):
 
     def unrounded(self, x: float) -> float:
         return self.initial * self.ratio ** x
+
+    def __repr__(self) -> str:
+        return f"ExponentialCurve(initial={self.initial}, ratio={self.ratio})"
 
 
 def image_url_from_emoji(emoji: str | discord.PartialEmoji) -> str:
@@ -501,3 +511,8 @@ def adjust_weight(weights: MutableMapping[T, int | float], /, item: T, *, k: flo
     r = k * (w_n - W) / (k * w_n - W)
     weights[item] *= r
     return r
+
+
+def next_utc_midnight(base: datetime.datetime | None = None) -> datetime.datetime:
+    base = base or discord.utils.utcnow()
+    return base.replace(hour=0, minute=0, second=0, microsecond=0) + datetime.timedelta(days=1)

@@ -29,6 +29,7 @@ from app.core.helpers import check_transaction_lock, get_transaction_lock
 from app.data.backpacks import Backpack, Backpacks
 from app.data.items import Item, ItemRarity, ItemType, Items
 from app.data.pets import Pets
+from app.data.quests import QuestTemplates
 from app.data.recipes import Recipe, Recipes
 from app.database import InventoryManager, NotificationData, UserRecord
 from app.util.common import (
@@ -917,6 +918,7 @@ class Transactions(Cog):
 
         record = await ctx.db.get_user_record(ctx.author.id)
         inventory = record.inventory_manager
+        quests = await record.quest_manager.wait()
 
         async with ctx.db.acquire() as conn:
             await record.add_random_exp(10, 15, chance=0.4, ctx=ctx, connection=conn)
@@ -924,6 +926,9 @@ class Transactions(Cog):
 
             await record.add(wallet=value, connection=conn)
             await inventory.add_item(item, -quantity, connection=conn)
+
+            if quest := quests.get_active_quest(QuestTemplates.sell_items):
+                await quest.add_progress(value, connection=conn)
 
         embed = discord.Embed(color=Colors.success, timestamp=ctx.now)
         embed.description = f'You sold {item.get_sentence_chunk(quantity)} in exchange for {Emojis.coin} **{value:,}** coins.'

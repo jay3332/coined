@@ -7,7 +7,7 @@ import json
 import random
 import re
 from collections import defaultdict
-from typing import Any, Final
+from typing import Any
 
 import better_exceptions
 import discord
@@ -20,6 +20,7 @@ from app.core.flags import FlagMeta
 from app.core.helpers import ActiveTransactionLock, CURRENCY_COGS, GenericError
 from app.data.events import EVENT_RARITY_WEIGHTS, Event, Events
 from app.data.items import Items, VOTE_REWARDS
+from app.data.quests import QuestTemplates
 from app.database import NotificationData
 from app.util.ansi import AnsiColor, AnsiStringBuilder
 from app.util.common import cutoff, humanize_duration, pluralize, walk_collection
@@ -358,6 +359,10 @@ class EventsCog(Cog, name='Events'):
             await inventory.add_item(item, connection=conn)
 
             kwargs = reward.to_notification_data_kwargs() if reward else {}
+            quests = await record.quest_manager.wait()
+            if quest := quests.get_active_quest(QuestTemplates.vote):
+                await quest.add_progress(count, connection=conn)
+
             notification = NotificationData.Vote(item=item.key, milestone=reward and milestone, **kwargs)
             await record.notifications_manager.add_notification(notification, connection=conn)
 
@@ -428,19 +433,59 @@ class EventsCog(Cog, name='Events'):
 
     @Cog.listener()
     async def on_command_completion(self, ctx: Context) -> Any:
-        if not ctx.cog or ctx.cog.qualified_name not in CURRENCY_COGS or random.random() > 0.04:
-            return
+        alerts = ctx.bot.alerts[ctx.author.id]
+        for alert in alerts:
+            try:
+                if itx := ctx.interaction:
+                    await itx.followup.send(**alert, ephemeral=True)
+                else:
+                    await ctx.send(**alert, reference=ctx.message, ephemeral=True)
+            except discord.HTTPException:
+                pass
+        alerts.clear()
 
-        lock = self._channel_event_locks[ctx.channel.id]
-        if lock.locked():
-            return
+        record = await ctx.fetch_author_record()
+        quests = await record.quest_manager.wait()
 
-        old = ctx._message
-        async with lock:
-            rarity = random.choices(list(EVENT_RARITY_WEIGHTS), weights=list(EVENT_RARITY_WEIGHTS.values()))[0]
-            if choices := [e for e in walk_collection(Events, Event) if e.rarity is rarity]:
-                await random.choice(choices)(ctx)
-        ctx._message = old
+        async with ctx.db.acquire() as conn:
+            if quest := quests.get_active_quest(QuestTemplates.all_commands):
+                await quest.add_progress(1, connection=conn)
+
+            is_currency = ctx.cog and ctx.cog.qualified_name in CURRENCY_COGS
+            if is_currency:
+                if quest := quests.get_active_quest(QuestTemplates.currency_commands):
+                    await quest.add_progress(1, connection=conn)
+
+            if ctx.cog and ctx.cog.qualified_name == 'Casino':
+                if quest := quests.get_active_quest(QuestTemplates.gamble_commands):
+                    await quest.add_progress(1, connection=conn)
+
+            if entry := quests.get_active_quest(QuestTemplates.specific_command):
+                if entry.quest.extra == ctx.command.qualified_name:
+                    await entry.add_progress(1, connection=conn)
+
+            # Events
+            if not is_currency or random.random() > 0.04:
+                return
+            lock = self._channel_event_locks[ctx.channel.id]
+            if lock.locked():
+                return
+
+            old = ctx._message
+            async with lock:
+                rarity = random.choices(list(EVENT_RARITY_WEIGHTS), weights=list(EVENT_RARITY_WEIGHTS.values()))[0]
+                if choices := [e for e in walk_collection(Events, Event) if e.rarity is rarity]:
+                    results = await random.choice(choices)(ctx)
+
+                    if ctx.author.id in results.participants:
+                        if entry := quests.get_active_quest(QuestTemplates.event_participant):
+                            await entry.add_progress(1, connection=conn)
+
+                    if ctx.author.id in results.winners:
+                        if entry := quests.get_active_quest(QuestTemplates.event_winner):
+                            await entry.add_progress(1, connection=conn)
+
+            ctx._message = old
 
 
 setup = EventsCog.simple_setup

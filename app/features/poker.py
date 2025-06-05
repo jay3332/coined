@@ -6,7 +6,7 @@ from typing import Any, NamedTuple
 import discord
 
 from app.core import Context
-from app.extensions.casino import Card, CardRank, CardSuit, Deck
+from app.extensions.casino import Card, CardRank, CardSuit, Deck, _handle_quests
 from app.util.converters import get_amount, NotEnough, NotAnInteger, PastMinimum
 from app.util.types import TypedInteraction
 from config import Colors, Emojis
@@ -230,7 +230,7 @@ class CustomRaiseModal(discord.ui.Modal, title='Raise Bet'):
         self.game = view.game
         super().__init__()
 
-    async def on_submit(self, interaction: TypedInteraction) -> None:
+    async def on_submit(self, interaction: TypedInteraction) -> Any:
         try:
             raise_by = get_amount(
                 total=self.game.current_turn.remaining,
@@ -692,6 +692,7 @@ class Poker(discord.ui.View):
         record = self.ctx.db.get_user_record(state.user.id, fetch=False)
         await record.add(wallet=state.remaining)
         profit = state.remaining - state.bet
+        await _handle_quests(self.ctx, record, bet=state.bet, profit=profit)
 
         embed = discord.Embed(
             color=Colors.success if profit > 0 else Colors.error if profit < 0 else Colors.warning

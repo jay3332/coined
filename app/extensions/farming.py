@@ -23,6 +23,7 @@ from app.core import (
     user_max_concurrency,
 )
 from app.data.items import Item, ItemType, Items
+from app.data.quests import QuestTemplates
 from app.database import CropInfo, CropManager, UserRecord
 from app.util.common import cutoff, humanize_duration, image_url_from_emoji, query_collection_many
 from app.util.converters import query_crop
@@ -557,6 +558,7 @@ class Farming(Cog):
         """
         record = await ctx.db.get_user_record(ctx.author.id)
         manager = await record.crop_manager.wait()
+        quests = await record.quest_manager.wait()
 
         try:
             crop = manager.cached[coordinates]
@@ -579,6 +581,9 @@ class Farming(Cog):
 
         if await manager.add_crop_exp(*coordinates, gain):
             message += f' Your crop is now **Level {manager.cached[coordinates].level}**!'
+
+        if quest := quests.get_active_quest(QuestTemplates.water_crops):
+            await quest.add_progress(1)
 
         await record.add_random_exp(8, 12, chance=0.8)
         embed = discord.Embed(color=Colors.success, description=message, timestamp=ctx.now)

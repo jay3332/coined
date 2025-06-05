@@ -6,7 +6,7 @@ import os
 import re
 import sys
 from asyncio import subprocess
-from collections import deque
+from collections import defaultdict, deque
 from datetime import datetime, time
 from io import BytesIO
 from typing import Any, ClassVar, Final, TYPE_CHECKING
@@ -221,6 +221,7 @@ class Tree(app_commands.CommandTree):
 class Bot(commands.Bot):
     """Dank Ripoff... Remastered."""
 
+    alerts: defaultdict[int, list[dict[str, Any]]]
     bypass_checks: bool
     cdn: CDNClient
     db: Database
@@ -319,6 +320,7 @@ class Bot(commands.Bot):
         self.cdn = CDNClient(self)
         self.bypass_checks = False
         self.ipc = Server(self, secret_key=ipc_secret)
+        self.alerts = defaultdict(list)
 
         self.loop.create_task(self._dispatch_first_ready())
         await self.ipc.start()
@@ -404,6 +406,9 @@ class Bot(commands.Bot):
 
             humans = sum(not member.bot for member in guild.members)
             self.partnership_weights[partner['invite']] = humans + partner.get('adjustment', 0)
+
+    def add_alert(self, user_id: int, alert: dict[str, Any]) -> None:
+        self.alerts[user_id].append(alert)
 
     @tasks.loop(time=EVERY_TWO_HOURS)
     async def update_partner_weights(self) -> None:

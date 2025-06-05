@@ -16,6 +16,7 @@ from discord.utils import format_dt
 
 from app.core import Cog, Context, command, group, simple_cooldown
 from app.core.helpers import BAD_ARGUMENT, EDIT, REPLY, cooldown_message, user_max_concurrency
+from app.data.quests import QuestTemplates
 from app.database import PetManager, PetRecord
 from app.data.items import Item, ItemType, Items, NetMetadata
 from app.data.pets import DEFAULT_PET_WEIGHTS, Pet, PetRarity, Pets
@@ -228,33 +229,6 @@ class PetsCog(Cog, name='Pets'):
         view = PetsAllLayout(ctx)
         await view.prepare()
         return view, REPLY
-
-        record = await ctx.db.get_user_record(ctx.author.id)
-        pets = await record.pet_manager.wait()
-
-        if not pets.cached:
-            mention = ctx.bot.tree.get_app_command(self.hunt.app_command.qualified_name).mention
-            return f'You have no pets! Go hunt for some with {mention}.'
-
-        embed = discord.Embed(color=Colors.primary, timestamp=ctx.now)
-        embed.description = (
-            f'You have discovered **{len(pets.cached)}** out of {sum(1 for _ in walk_collection(Pets, Pet))} pets.'
-        )
-        embed.set_author(name=f"{ctx.author.name}'s Pets", icon_url=ctx.author.avatar)
-        embed.set_thumbnail(url=image_url_from_emoji('\U0001f43e'))
-
-        formatter = LineBasedFormatter(
-            embed=embed,
-            field_name=f'Discovered Pets ({len(pets.cached)})',
-            lines=[
-                f'**{entry.pet.display}** {entry.pet.rarity.emoji} \u2014 Level {entry.level:,} '
-                + ('[EQUIPPED]' if entry.equipped else '')
-                for entry in sorted(pets.cached.values(), key=lambda entry: (-entry.pet.rarity.value, entry.pet.name))
-            ],
-            per_page=10,
-        )
-
-        return Paginator(ctx, formatter), REPLY
 
     @pets.command(name='info', aliases={'i', 'details', 'stats'}, hybrid=True)
     @app_commands.describe(pet='The pet to view information on.')
@@ -783,7 +757,10 @@ class HuntTargetButton(discord.ui.Button['HuntView']):
         embed = discord.Embed(color=Colors.success)
         embed.set_author(name=f'{itx.user.name}: Caught a pet!', icon_url=itx.user.avatar)
         embed.set_thumbnail(url=image_url_from_emoji(str(self.emoji)))
-        embed.description = f'You caught a {self.pet.rarity.name} **{self.pet.display}**!\n*{self.pet.description}*'
+        embed.description = (
+            f'You caught {self.pet.rarity.singular} {self.pet.rarity.name} **{self.pet.display}**!\n'
+            f'*{self.pet.description}*'
+        )
 
         pets = await self.view.record.pet_manager.wait()
         if pet_record := pets.cached.get(self.pet):
@@ -835,6 +812,16 @@ class HuntTargetButton(discord.ui.Button['HuntView']):
         ))
         await itx.followup.send(embed=embed, view=self.view.followup_view)
 
+        quests = await self.view.record.quest_manager.wait()
+        if quest := quests.get_active_quest(QuestTemplates.catch_pets):
+            await quest.add_progress(1)
+        if quest := quests.get_active_quest(QuestTemplates.catch_specific_pet):
+            if self.pet.key == quest.quest.extra:
+                await quest.add_progress(1)
+        if quest := quests.get_active_quest(QuestTemplates.catch_pets_of_rarity):
+            if self.pet.rarity.name == quest.quest.extra:
+                await quest.add_progress(1)
+
 
 class HuntView(UserView):  # CHANGE TO UserView
     def __init__(self, ctx: Context, record: UserRecord, continuation: discord.ui.View | None = None) -> None:
@@ -857,7 +844,6 @@ def _format_entry(entry: PetRecord) -> str:
         if entry.energy > 0 else '\u26a0\ufe0f'
     )
 
-    exp = Emojis.Expansion
     energy_pbar = progress_bar(entry.energy / entry.max_energy, length=6)
     return (
         f'\u2728 {_format_level_data(entry)}\n'
@@ -949,6 +935,7 @@ class FeedView(UserView):
     def __init__(self, ctx: Context, record: UserRecord, entry: PetRecord) -> None:
         super().__init__(ctx.author, timeout=60)
         self.ctx = ctx
+        self.record: UserRecord = record
         self.inventory = record.inventory_manager
         self.pets = record.pet_manager
         self.entry: PetRecord = entry
@@ -1079,6 +1066,7 @@ class FeedView(UserView):
         await interaction.response.send_modal(SearchItemModal(self))
 
     async def do_feed(self, interaction: TypedInteraction, quantity: int) -> None:
+        quests = await self.record.quest_manager.wait()
         async with self.ctx.db.acquire() as conn:
             await self.inventory.add_item(self.current_item, -quantity, connection=conn)
             energy = min(self.current_item.energy * quantity, self.entry.max_energy - self.entry.energy)
@@ -1091,6 +1079,14 @@ class FeedView(UserView):
                 exp += 1
             await self.entry.add(exp=exp, connection=conn)
             new_level = self.entry.level
+
+            if quest := quests.get_active_quest(QuestTemplates.feed_energy):
+                await quest.add_progress(energy, connection=conn)
+            if quest := quests.get_active_quest(QuestTemplates.feed_worth_coins):
+                await quest.add_progress(self.current_item.sell * quantity, connection=conn)
+            if quest := quests.get_active_quest(QuestTemplates.feed_specific_item):
+                if self.current_item.key == quest.quest.extra:
+                    await quest.add_progress(quantity, connection=conn)
 
         self.update_view()
         await interaction.response.edit_message(embeds=self.make_embeds(), view=self)
@@ -1275,7 +1271,7 @@ class PetsAllContainer(ui.Container, NavigableItem):
         start_idx = self.page * self.PER_PAGE
         pets = sorted(self.pets.cached.values(), key=lambda p: p.pet.rarity, reverse=True)[
            start_idx:start_idx + self.PER_PAGE
-       ]
+        ]
 
         for i, entry in enumerate(pets):
             self.add_item(ui.Separator(

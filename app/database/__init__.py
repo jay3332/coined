@@ -5,9 +5,10 @@ import datetime
 import json
 import random
 from abc import ABC, abstractmethod
-from collections import defaultdict
+from collections import defaultdict, deque
 from dataclasses import dataclass
 from enum import IntEnum
+from itertools import islice
 from string import ascii_letters
 from typing import Any, Awaitable, Callable, Generator, Iterable, Literal, NamedTuple, Protocol, overload, TYPE_CHECKING
 
@@ -20,9 +21,21 @@ from app.data.backpacks import Backpack, Backpacks
 from app.data.items import CropMetadata, Item, Items, Reward, LEVEL_REWARDS
 from app.data.jobs import Job, Jobs
 from app.data.pets import Pet, Pets
+from app.data.quests import QUEST_PASS_CURVE, QUEST_PASS_REWARDS, Quest, QuestCategory, QuestTemplate, QuestTemplates, \
+    QuestSlot
 from app.data.skills import Skill, Skills
 from app.database.migrations import Migrator
-from app.util.common import CubicCurve, ExponentialCurve, get_by_key, image_url_from_emoji, pick
+from app.util.common import (
+    CubicCurve,
+    ExponentialCurve,
+    expansion_list,
+    get_by_key,
+    image_url_from_emoji,
+    next_utc_midnight,
+    pick,
+    progress_bar,
+)
+from app.util.views import StaticCommandButton
 from config import Colors, DatabaseConfig, Emojis, multiplier_guilds
 
 if TYPE_CHECKING:
@@ -910,6 +923,10 @@ class CropManager:
             for item, quantity in harvested.items():
                 await self._record.inventory_manager.add_item(item, quantity, connection=conn)
 
+            quests = await self._record.quest_manager.wait()
+            if quest := quests.get_active_quest(QuestTemplates.harvest_crops):
+                await quest.add_progress(len(coordinates), connection=conn)
+
         return level_ups, harvested
 
     async def add_crop_exp(self, x: int, y: int, exp: int) -> bool:
@@ -940,7 +957,7 @@ class CropManager:
         new = await self._record.db.fetchrow(query, self._record.user_id, x, y)
         self.cached[x, y] = CropInfo.from_record(new)
 
-    async def plant_crop(self, coordinates: Iterable[tuple[int, int]], crop: Item | str) -> None:
+    async def plant_crop(self, coordinates: list[tuple[int, int]], crop: Item | str) -> None:
         if isinstance(crop, Item):
             crop = crop.key
 
@@ -954,6 +971,10 @@ class CropManager:
         for x, y in coordinates:
             new = await self._record.db.fetchrow(query, self._record.user_id, crop, x, y)
             self.cached[x, y] = CropInfo.from_record(new)
+
+        quests = await self._record.quest_manager.wait()
+        if quest := quests.get_active_quest(QuestTemplates.plant_crops):
+            await quest.add_progress(len(coordinates))
 
     async def add_land(self, x: int, y: int) -> None:
         await self.wait()
@@ -1318,6 +1339,290 @@ class JobProvider(NamedTuple):
         return f'<JobProvider job={self.job!r} salary={self.salary} hours={self.hours}>'
 
 
+@dataclass
+class QuestRecord:
+    manager: QuestManager
+    quest: Quest
+    id: int
+    progress: int
+    completed_at: datetime.datetime | None = None
+    expires_at: datetime.datetime | None = None
+
+    @property
+    def is_completed(self) -> bool:
+        return self.completed_at is not None
+
+    @property
+    def is_expired(self) -> bool:
+        if self.expires_at is None:
+            return False
+        return discord.utils.utcnow() > self.expires_at
+
+    @property
+    def is_active(self) -> bool:
+        """Returns whether the quest is currently active."""
+        return not self.is_completed and not self.is_expired
+
+    async def add_progress(
+        self,
+        progress: int,
+        *,
+        connection: asyncpg.Connection | None = None,
+    ) -> None:
+        if not progress:
+            return
+        await self.set_progress(
+            min(self.progress + progress, self.quest.max_progress),
+            connection=connection,
+        )
+
+    async def set_progress(
+        self,
+        progress: int,
+        *,
+        connection: asyncpg.Connection | None = None,
+    ) -> None:
+        record = self.manager.record
+        if progress >= self.quest.max_progress:
+            self.completed_at = discord.utils.utcnow()
+
+            reward = self.quest.tickets
+            old_tier, old_n, old_d = record.quest_pass_tier_data
+            await record.add(tickets=reward, connection=connection)
+
+            new_tier, new_n, new_d = record.quest_pass_tier_data
+            pbar = progress_bar(new_n / new_d)
+
+            expansion = [
+                f'{Emojis.ticket} **+{reward} Tickets** (you now have {record.tickets:,})',
+                f'{Emojis.quest_pass} **Tier {new_tier}** {pbar} {Emojis.ticket} {new_n:,}/{new_d:,}',
+            ]
+            embed = None
+            if new_tier > old_tier:
+                rewards = sum(QUEST_PASS_REWARDS[old_tier:new_tier], start=Reward())
+                await rewards.apply(record, connection=connection)
+
+                embed = discord.Embed(
+                    description=str(rewards), color=Colors.success
+                ).set_author(
+                    name=f'Tier {new_tier} Quest Pass Rewards',
+                )
+                expansion.append(f'\u23eb **TIER UP!** You have advanced to **Quest Pass Tier {new_tier}**.')
+
+            content = (
+                f'### Quest Complete!\n**{self.quest.title}**\n{expansion_list(expansion)}'
+            )
+            kwargs = dict(content=content, embed=embed, view=discord.ui.View().add_item(
+                StaticCommandButton(
+                    command=record.db.bot.get_command('quests'),
+                    label='View Quests',
+                    style=discord.ButtonStyle.primary,
+                )
+            ))
+            record.db.bot.add_alert(record.user_id, kwargs)
+
+        query = """
+                UPDATE quests SET progress = $3, completed_at = $4
+                WHERE id = $1 AND user_id = $2
+                RETURNING *;
+                """
+        record = await (connection or self.manager.record.db).fetchrow(
+            query, self.id, record.user_id,
+            progress, self.completed_at,
+        )
+        self._update(record)
+
+    def _update(self, record: asyncpg.Record) -> None:
+        self.progress = record['progress']
+        self.completed_at = record['completed_at']
+        self.expires_at = record['expires_at']
+
+    @classmethod
+    def from_record(cls, manager: QuestManager, record: asyncpg.Record) -> Self:
+        return cls(
+            manager=manager,
+            quest=Quest(
+                record=manager.record,
+                template=get_by_key(QuestTemplates, record['template_key']),
+                slot=QuestSlot(record['type']),
+                arg=record['arg'],
+                extra=record.get('extra', None),
+            ),
+            id=record['id'],
+            progress=record['progress'],
+            completed_at=record['completed_at'],
+            expires_at=record['expires_at'],
+        )
+
+
+class CompletedQuest(NamedTuple):
+    slot: QuestSlot
+    refreshes_at: datetime.datetime
+
+
+class QuestSlots(NamedTuple):
+    vote: QuestRecord | CompletedQuest
+    recurring_easy: QuestRecord
+    recurring_mid: QuestRecord
+    recurring_hard: QuestRecord
+    daily_1: QuestRecord | CompletedQuest
+    daily_2: QuestRecord | CompletedQuest
+
+
+class QuestManager:
+    def __init__(self, record: UserRecord) -> None:
+        self.record = record
+        self.cached: deque[QuestRecord] = deque()
+        self._task = record.db.bot.loop.create_task(self.fetch())
+
+    @property
+    def _recent_cached(self) -> Iterable[QuestRecord]:
+        return islice(self.cached, 0, 10)
+
+    @property
+    def all_active_quests(self) -> list[QuestRecord]:
+        """Returns all active quests."""
+        return [record for record in self._recent_cached if record.is_active]
+
+    def get_active_quest(self, template: QuestTemplate) -> QuestRecord | None:
+        for record in self._recent_cached:
+            if record.quest.template is template and record.is_active:
+                return record
+        return None
+
+    def get_active_quest_for_slot(self, slot: QuestSlot, /) -> QuestRecord | None:
+        """Returns the first active quest of the specified type."""
+        for record in self._recent_cached:
+            if record.quest.slot is slot and record.is_active:
+                return record
+        return None
+
+    def get_most_recent_quest_for_slot(self, slot: QuestSlot, /) -> QuestRecord | None:
+        """Returns the most recent quest of the specified type."""
+        if active := self.get_active_quest_for_slot(slot):
+            return active
+        for record in self.cached:
+            if record.quest.slot is slot:
+                return record
+        return None
+
+    async def get_or_create_active_quest_for_slot(self, slot: QuestSlot, /) -> QuestRecord:
+        """Returns an active quest of the specified type, creating it if necessary."""
+        record = self.get_active_quest_for_slot(slot)
+        if record is None:
+            record = await self.generate_quest(slot)
+        return record
+
+    async def _register_quest(self, quest: Quest, *, expires_at: datetime.datetime | None = None) -> QuestRecord:
+        """Registers a new quest in the database."""
+        query = """
+                INSERT INTO quests (user_id, template_key, type, arg, extra, expires_at)
+                VALUES ($1, $2, $3, $4, $5, $6)
+                RETURNING *;
+                """
+        record = await self.record.db.fetchrow(
+            query,
+            self.record.user_id,
+            quest.template.key,
+            quest.slot.value,
+            quest.arg,
+            quest.extra,
+            expires_at,
+        )
+        record = QuestRecord.from_record(self, record)
+        self.cached.appendleft(record)
+        return record
+
+    def get_quest_for_slot(self, slot: QuestSlot, /) -> QuestRecord | CompletedQuest:
+        """Returns the quest for the specified slot, or a datetime specifying when this quest should regenerate."""
+        if record := self.get_active_quest_for_slot(slot):
+            return record
+        if slot is QuestSlot.vote:
+            return CompletedQuest(slot, self.record.last_dbl_vote + datetime.timedelta(hours=12))
+        if slot in (QuestSlot.daily_1, QuestSlot.daily_2):
+            return CompletedQuest(slot, next_utc_midnight())
+        raise NotImplementedError
+
+    async def refresh_slots(self) -> QuestSlots:
+        if not self.all_active_quests:
+            await self.load_quests()
+
+        daily_1 = self.get_quest_for_slot(QuestSlot.daily_1)
+        daily_2 = self.get_quest_for_slot(QuestSlot.daily_2)
+
+        if isinstance(daily_1, CompletedQuest) and not self.get_most_recent_quest_for_slot(QuestSlot.daily_1):
+            daily_1 = await self.generate_quest(QuestSlot.daily_1)
+        if isinstance(daily_2, CompletedQuest) and not self.get_most_recent_quest_for_slot(QuestSlot.daily_2):
+            daily_2 = await self.generate_quest(QuestSlot.daily_2)
+
+        return QuestSlots(
+            vote=self.get_quest_for_slot(QuestSlot.vote),
+            recurring_easy=await self.get_or_create_active_quest_for_slot(QuestSlot.recurring_easy),
+            recurring_mid=await self.get_or_create_active_quest_for_slot(QuestSlot.recurring_mid),
+            recurring_hard=await self.get_or_create_active_quest_for_slot(QuestSlot.recurring_hard),
+            daily_1=daily_1,
+            daily_2=daily_2,
+        )
+
+    async def generate_quest(self, slot: QuestSlot) -> QuestRecord:
+        """Creates and registers a new quest of the specified type."""
+        # deduce a good template
+        previous = self.get_most_recent_quest_for_slot(slot)
+        if previous:
+            assert not previous.is_active
+            base = previous.completed_at or previous.expires_at
+        else:
+            base = discord.utils.utcnow()
+
+        if slot is QuestSlot.vote:
+            template = QuestTemplates.vote
+        else:
+            exclude = set(q.quest.template.category for q in self.cached)
+            if len(exclude) == len(QuestCategory):
+                exclude = set(q.quest.template.category for q in self.all_active_quests)
+            category = slot.get_random_category(exclude=exclude)
+            available_templates = list(QuestTemplates.walk_templates(category))
+            template = random.choice(available_templates)
+
+        quest = await template.generate(slot, self.record)
+
+        expiry = base
+        now = discord.utils.utcnow()
+        while expiry <= now:
+            match slot:
+                case QuestSlot.daily_1 | QuestSlot.daily_2:
+                    expiry = next_utc_midnight(expiry)
+                case QuestSlot.recurring_easy:
+                    expiry += datetime.timedelta(hours=12)
+                case QuestSlot.recurring_mid:
+                    expiry += datetime.timedelta(days=2)
+                case QuestSlot.recurring_hard:
+                    expiry += datetime.timedelta(days=7)
+                case _:
+                    expiry = None
+                    break
+
+        record = await self._register_quest(quest, expires_at=expiry)
+        await template.setup(quest)
+        return record
+
+    async def load_quests(self) -> None:
+        # If no recurring quests are found, create default ones
+        for type in QuestSlot:
+            await self.get_or_create_active_quest_for_slot(type)
+
+    async def wait(self) -> Self:
+        await self._task
+        return self
+
+    async def fetch(self) -> None:
+        await self.record.db.wait()
+        query = 'SELECT * FROM quests WHERE user_id = $1 ORDER BY id DESC'
+        records = await self.record.db.fetch(query, self.record.user_id)
+        self.cached = deque(QuestRecord.from_record(self, record) for record in records)
+        await self.refresh_slots()
+
+
 class UserRecord(BaseRecord):
     """Stores data about a user."""
 
@@ -1338,6 +1643,7 @@ class UserRecord(BaseRecord):
         self.__skill_manager: SkillManager | None = None
         self.__crop_manager: CropManager | None = None
         self.__pet_manager: PetManager | None = None
+        self.__quest_manager: QuestManager | None = None
 
     def __repr__(self) -> str:
         return f'<UserRecord wallet={self.wallet} bank={self.bank} level_data={self.level_data}>'
@@ -1415,11 +1721,25 @@ class UserRecord(BaseRecord):
                 await self.db.release(actual_conn)
         return self
 
-    async def add_coins(self, coins: int, /, *, connection: asyncpg.Connection | None = None) -> int:
+    async def add_coins(
+        self,
+        coins: int,
+        /,
+        *,
+        multiplier: float | None = None,
+        is_profit: bool = True,
+        connection: asyncpg.Connection | None = None,
+    ) -> int:
         """Adds coins including applying multipliers. Returns the amount of coins added."""
-        coins = round(coins * self.coin_multiplier) if coins > 0 else coins
-
+        multiplier = multiplier or self.coin_multiplier
+        coins = round(coins * multiplier) if coins > 0 else coins
         await self.add(wallet=coins, connection=connection)
+
+        quests = await self.quest_manager.wait()
+        if is_profit:
+            if entry := quests.get_active_quest(QuestTemplates.earn_coins):
+                await entry.add_progress(coins, connection=connection)
+
         return coins
 
     async def add_exp(
@@ -1554,6 +1874,14 @@ class UserRecord(BaseRecord):
     @property
     def orbs(self) -> int:
         return self.data['orbs']
+
+    @property
+    def tickets(self) -> int:
+        return self.data['tickets']
+
+    @property
+    def quest_pass_tier_data(self) -> tuple[int, int, int]:
+        return QUEST_PASS_CURVE.compute_level(self.tickets)
 
     @property
     def base_exp_multiplier(self) -> float:
@@ -1828,6 +2156,14 @@ class UserRecord(BaseRecord):
             self.__pet_manager = PetManager(self)
 
         return self.__pet_manager
+
+    @property
+    def quest_manager(self) -> QuestManager:
+        """Returns the quest manager for the user."""
+        if not self.__quest_manager:
+            self.__quest_manager = QuestManager(self)
+
+        return self.__quest_manager
 
 
 class GuildRecord(BaseRecord):

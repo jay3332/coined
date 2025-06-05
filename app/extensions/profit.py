@@ -13,6 +13,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 from discord.ext.commands import BadArgument
+from discord.utils import format_dt
 
 from app.core import (
     BAD_ARGUMENT,
@@ -23,15 +24,16 @@ from app.core import (
     NO_EXTRA, REPLY,
     command,
     database_cooldown,
-    lock_transactions,
+    group, lock_transactions,
     simple_cooldown,
     user_max_concurrency
 )
 from app.core.helpers import EPHEMERAL, cooldown_message
 from app.data.items import EnemyRef, FishingPoleMetadata, Item, ItemRarity, ItemType, Items
 from app.data.pets import Pet, Pets
+from app.data.quests import QUEST_PASS_CURVE, QUEST_PASS_REWARDS, QuestTemplates, reward_for_achieving_tier
 from app.data.skills import RobberyTrainingButton
-from app.database import NotificationData, RobFailReason, UserRecord
+from app.database import NotificationData, QuestManager, QuestRecord, RobFailReason, UserRecord
 from app.extensions.misc import _get_retry_after
 from app.features.battles import PvEBattleView
 from app.features.digging import DiggingView
@@ -1519,6 +1521,7 @@ class Profit(Cog):
             death_chance = max(10 - skills.points_in('robbery') / 2 + their_skills.points_in('defense') / 2, 0) / 100
 
             if random.random() < success_chance:
+                quests = await record.quest_manager.wait()
                 payout_percent = min(
                     random.uniform(.3, .8) + min(skills.points_in('robbery') * .02, .5),
                     record.wallet * 3 / their_record.wallet,
@@ -1540,6 +1543,10 @@ class Profit(Cog):
                 await notify(NotificationData.RobSuccess(
                     user_id=ctx.author.id, guild_name=ctx.guild.name, percent=payout_percent, amount=payout,
                 ))
+                if quest := quests.get_active_quest(QuestTemplates.rob_coins):
+                    await quest.add_progress(payout)
+                if quest := quests.get_active_quest(QuestTemplates.rob_successes):
+                    await quest.add_progress(1)
                 return
 
             if random.random() < death_chance:
@@ -1580,6 +1587,33 @@ class Profit(Cog):
     @app_commands.allowed_installs(guilds=True, users=False)
     async def rob_app_command(self, ctx: HybridContext, victim: discord.Member) -> None:
         await ctx.invoke(ctx.command, user=victim)
+
+    @group(aliases={'q', 'qu', 'quest', 'pass', 'battlepass'}, hybrid=True, fallback='view', expand_subcommands=True)
+    @simple_cooldown(2, 7)
+    @user_max_concurrency(1)
+    async def quests(self, ctx: Context) -> CommandResponse:
+        """View your current quests and progress."""
+        if ctx.invoked_with in ('pass', 'battlepass'):
+            return await ctx.invoke(self.quest_pass)  # type: ignore
+
+        record = await ctx.db.get_user_record(ctx.author.id)
+        await record.quest_manager.wait()
+
+        view = QuestsView(ctx, record)
+        await view.update()
+        return view, REPLY, NO_EXTRA
+
+    @quests.command(name='pass', aliases={'bp', 'battlepass', 'rewards', 'reward', 'p'}, hybrid=True)
+    @simple_cooldown(2, 7)
+    @user_max_concurrency(1)
+    async def quest_pass(self, ctx: Context) -> CommandResponse:
+        """View your quest pass tier and quest rewards!"""
+        record = await ctx.db.get_user_record(ctx.author.id)
+        await record.quest_manager.wait()
+
+        view = QuestPassView(ctx, record)
+        await view.update()
+        return view, REPLY, NO_EXTRA
 
 
 class ChopView(UserView):
@@ -2017,6 +2051,12 @@ class FishingView(UserView):
         kwargs = {item.key: quantity for item, quantity in self.collected.items() if item}
         await self.record.inventory_manager.add_bulk(**kwargs)
 
+        quests = await self.record.quest_manager.wait()
+        if quest := quests.get_active_quest(QuestTemplates.catch_fish):
+            await quest.add_progress(sum(self.collected.values()))
+        if quest := quests.get_active_quest(QuestTemplates.catch_specific_fish):
+            await quest.add_progress(kwargs.get(quest.quest.extra, 0))
+
     @discord.ui.button(
         label='Fishing in Progress...', style=discord.ButtonStyle.primary, emoji=Emojis.loading, disabled=True,
     )
@@ -2204,6 +2244,192 @@ class DivingView(UserView):
     async def on_timeout(self) -> None:
         self.stop()
         await self.ctx.maybe_edit(self.ctx.message, embed=self.make_embed(message='You ran out of time!'), view=self)
+
+
+class QuestsNavRow(discord.ui.ActionRow['QuestsView']):
+    def __init__(self, parent: QuestsContainer) -> None:
+        super().__init__()
+        self.parent: QuestsContainer = parent
+
+    def update(self) -> None:
+        if self.parent.showing_daily_quests:
+            self.toggle_daily_quests.label = 'See Recurring Quests'
+        else:
+            self.toggle_daily_quests.label = 'See Daily Quests'
+
+    @discord.ui.button(label='See Daily Quests', style=discord.ButtonStyle.primary)
+    async def toggle_daily_quests(self, interaction: TypedInteraction, _button: discord.ui.Button) -> Any:
+        self.parent.showing_daily_quests = not self.parent.showing_daily_quests
+        await self.parent.update()
+
+        await interaction.response.edit_message(view=self.view)
+
+
+class QuestsContainer(discord.ui.Container['QuestsView']):
+    def __init__(self) -> None:
+        super().__init__(accent_color=Colors.secondary)
+        self.showing_daily_quests: bool = False
+        self.nav = QuestsNavRow(self)
+
+    @property
+    def ctx(self) -> Context:
+        return self.view.ctx
+
+    @property
+    def quests(self) -> QuestManager:
+        return self.view.quests
+
+    async def update(self) -> None:
+        self.clear_items()
+
+        subtext = (
+            'Showing daily quests' if self.showing_daily_quests else 'Showing recurring quests'
+        )
+        self.add_item(discord.ui.TextDisplay(
+            f'### {self.ctx.author.name}\'s Quests\n-# {subtext}\n'
+            f'-# You have a total of {Emojis.ticket} **{self.view.record.tickets:,}**'
+        ))
+        self.add_item(discord.ui.Separator(spacing=discord.SeparatorSize.large))
+
+        quests = await self.quests.refresh_slots()
+        if self.showing_daily_quests:
+            show = quests.vote, quests.daily_1, quests.daily_2
+        else:
+            show = quests.vote, quests.recurring_easy, quests.recurring_mid, quests.recurring_hard
+
+        for i, entry in enumerate(show):
+            if isinstance(entry, QuestRecord):
+                title = entry.quest.title
+                exp = [
+                    f'{progress_bar(entry.progress / entry.quest.max_progress)} {entry.progress:,}/{entry.quest.max_progress:,}',
+                    f'Reward: {Emojis.ticket} **{entry.quest.tickets:,}**',
+                ]
+                if entry.expires_at:
+                    exp.append(f'Expires {format_dt(entry.expires_at, "R")}')
+            else:
+                recent = self.quests.get_most_recent_quest_for_slot(entry.slot)
+                if not recent:
+                    continue
+                title = recent.quest.title
+                exp = [
+                    f'{progress_bar(1.0, length=8, provider=Emojis.GreenProgressBars)} Completed!',
+                    f'You received {Emojis.ticket} **{recent.quest.tickets:,}**',
+                    f'Refreshes {format_dt(entry.refreshes_at, "R")}',
+                ]
+            self.add_item(discord.ui.TextDisplay(f'**{title}**\n{expansion_list(exp)}'))
+            if i < len(show) - 1:
+                self.add_item(discord.ui.Separator(visible=False))
+
+        self.nav.update()
+        self.add_item(discord.ui.Separator(visible=False)).add_item(self.nav)
+        self.add_item(discord.ui.Separator(spacing=discord.SeparatorSize.large))
+
+        tier, n, d = self.view.record.quest_pass_tier_data
+        self.add_item(discord.ui.Section(
+            f'### Quest Pass',
+            f'{Emojis.quest_pass} **Tier {tier}**\n'
+            f'{Emojis.Expansion.first} {Emojis.ticket} {progress_bar(n / d, provider=Emojis.RedProgressBars)} {n:,}/{d:,}\n'
+            f'{Emojis.Expansion.last} {QUEST_PASS_REWARDS[tier].short} at next tier',
+            accessory=StaticCommandButton(
+                command=self.ctx.bot.get_command('quests pass'),
+                label='Quest Pass',
+                emoji=Emojis.ticket,
+            )
+        ))
+
+
+class QuestsView(discord.ui.LayoutView):
+    def __init__(self, ctx: Context, record: UserRecord) -> None:
+        super().__init__(timeout=300)
+        self.ctx = ctx
+        self.record = record
+        self.quests = record.quest_manager
+        self.add_item(container := QuestsContainer())
+        self._container = container
+
+    async def update(self) -> None:
+        await self._container.update()
+
+
+from app.extensions.pets import NavigableItem, NavigationRow  # TODO put into its own place
+
+
+class QuestPassContainer(discord.ui.Container['QuestPassView'], NavigableItem):
+    REWARDS_PER_PAGE: int = 5
+
+    def __init__(self, ctx: Context, record: UserRecord) -> None:
+        super().__init__(accent_color=Colors.secondary)
+        self.ctx = ctx
+        self.record = record
+        self.nav = NavigationRow(self)
+
+        tier, _, _ = self.record.quest_pass_tier_data
+        self.page = (tier + 1) // self.REWARDS_PER_PAGE
+
+    @property
+    def current_page(self) -> int:
+        return self.page
+
+    @property
+    def max_pages(self) -> int:
+        return len(QUEST_PASS_REWARDS) // self.REWARDS_PER_PAGE
+
+    async def set_page(self, itx: TypedInteraction, page: int):
+        self.page = page
+        await self.update()
+        await itx.response.edit_message(view=self.view)
+
+    @staticmethod
+    def _get_reward_emoji(tier: int) -> str:
+        out = None
+        if reward := reward_for_achieving_tier(tier):
+            out = reward.principal_emoji
+        return out or Emojis.space
+
+    async def update(self) -> None:
+        self.clear_items()
+
+        large_sep = lambda: discord.ui.Separator(spacing=discord.SeparatorSize.large)
+        self.add_item(discord.ui.TextDisplay(
+            f'### {self.ctx.author.name}\'s Quest Pass\n'
+            f'-# You have a total of {Emojis.ticket} **{self.record.tickets:,}**\n'
+        )).add_item(large_sep())
+
+        tier, n, d = self.record.quest_pass_tier_data
+        emojis = ' '.join(self._get_reward_emoji(t) for t in range(tier - 2, tier + 5))
+        chevron = (Emojis.space + ' ') * 2 + '\U0001f53a'
+        self.add_item(discord.ui.TextDisplay(f'## {emojis}\n## {chevron}')).add_item(large_sep())
+        self.add_item(discord.ui.TextDisplay(
+            f'{Emojis.quest_pass} **Tier {tier}**\n'
+            f'{Emojis.Expansion.first} {Emojis.ticket} {progress_bar(n / d, provider=Emojis.RedProgressBars)} {n:,}/{d:,}\n'
+            f'{Emojis.Expansion.last} Next tier reward: {QUEST_PASS_REWARDS[tier].short}'
+        )).add_item(large_sep())
+
+        for i, reward in enumerate(
+            QUEST_PASS_REWARDS[self.page * self.REWARDS_PER_PAGE:(self.page + 1) * self.REWARDS_PER_PAGE],
+            start=self.page * self.REWARDS_PER_PAGE + 1,
+        ):
+            if reward is None:
+                continue
+            self.add_item(discord.ui.TextDisplay(
+                f'**Tier {i}** \u2014 {Emojis.ticket} {QUEST_PASS_CURVE.total_exp_needed_to_complete(i):,} total tickets\n'
+                f'{Emojis.Expansion.standalone} {reward.short}'
+            ))
+
+        self.nav.update()
+        self.add_item(large_sep()).add_item(self.nav)
+
+
+class QuestPassView(discord.ui.LayoutView):
+    def __init__(self, ctx: Context, record: UserRecord) -> None:
+        super().__init__(timeout=300)
+        self.ctx = ctx
+        self.record = record
+        self.add_item(container := QuestPassContainer(ctx, record))
+        self._container = container
+
+    async def update(self) -> None:
+        await self._container.update()
 
 
 setup = Profit.simple_setup

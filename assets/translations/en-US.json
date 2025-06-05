@@ -420,6 +420,18 @@
         }
       }
     },
+    "quests": {
+      "name": "quests",
+      "description": "View your current quests and progress."
+    },
+    "quests_view": {
+      "name": "view",
+      "description": "View your current quests and progress."
+    },
+    "quests_pass": {
+      "name": "pass",
+      "description": "View your quest pass tier and quest rewards!"
+    },
     "roll": {
       "name": "roll",
       "description": "You and I each will roll a pair of dice. The one with the higher sum wins!",

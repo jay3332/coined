@@ -16,6 +16,7 @@ from app.core.helpers import EPHEMERAL
 from app.data.items import Items
 from app.data.jobs import Job, Jobs, MinigameFailure
 from app.data.pets import Pets
+from app.data.quests import QuestTemplates
 from app.extensions.profit import Profit
 from app.util.common import (
     expansion_list,
@@ -183,6 +184,7 @@ class JobsCog(Cog, name='Jobs'):
 
         message = message or ctx._message
         raise_amount = 0 if (record.job.hours + 1) % 5 else info.base_salary // 10
+        quests = await record.quest_manager.wait()
 
         async with ctx.db.acquire() as conn:
             await record.add(job_hours=1, work_experience=1, job_salary=raise_amount, connection=conn)
@@ -192,6 +194,11 @@ class JobsCog(Cog, name='Jobs'):
                 f'\n\u2934\ufe0f **You got a raise!** Your base salary is now {Emojis.coin} **{record.job.salary:,}**.'
                 if raise_amount else ''
             )
+            if raise_amount:
+                if quest := quests.get_active_quest(QuestTemplates.work_raises):
+                    await quest.add_progress(1, connection=conn)
+            if quest := quests.get_active_quest(QuestTemplates.work_successes):
+                await quest.add_progress(1, connection=conn)
 
             pets = await record.pet_manager.wait()
             if duck := pets.get_active_pet(Pets.duck):
@@ -226,8 +233,12 @@ class JobsCog(Cog, name='Jobs'):
         for child in shortcuts.children:
             view.add_item(child)
 
-        await message.reply(
-            f'{info.emoji} **SUCCESS!** You work as {info.chunk} and earn {Emojis.coin} **{profit:,}**{item_text}!' + raise_text,
+        if ctx.interaction and ctx.interaction.is_user_integration():
+            method = ctx.interaction.followup.send
+        else:
+            method = message.reply
+        await method(
+            content=f'{info.emoji} **SUCCESS!** You work as {info.chunk} and earn {Emojis.coin} **{profit:,}**{item_text}!' + raise_text,
             view=view,
         )
 

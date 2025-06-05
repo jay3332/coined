@@ -18,7 +18,8 @@ from PIL import Image, ImageDraw
 from app.core import Context
 from app.data.backpacks import Backpack
 from app.data.pets import Pets
-from app.database import InventoryManager, PetManager, UserRecord
+from app.data.quests import QuestTemplates
+from app.database import InventoryManager, PetManager, QuestManager, UserRecord
 from app.data.biomes import Biome, Biomes
 from app.data.items import ItemType, Items, Item, ToolMetadata
 from app.util.common import executor_function, humanize_duration, image_url_from_emoji, progress_bar, weighted_choice
@@ -84,8 +85,15 @@ class TargetActionRow(ui.ActionRow['DiggingView']):
         cell = session.target_cell
 
         tool = session.pickaxe if cell.item and cell.item.type is ItemType.ore else session.shovel
-        session.target_cell.hp -= (tool.metadata.strength if tool else 1) * session.hp_multiplier
+        hp_dealt = min(
+            (tool.metadata.strength if tool else 1) * session.hp_multiplier,
+            cell.hp,
+        )
+        cell.hp -= hp_dealt
         session.stamina -= 1
+
+        if quest := session.quests.get_active_quest(QuestTemplates.dig_hp):
+            await quest.add_progress(int(hp_dealt))
 
         if session.target_cell.hp <= 0:
             if session.target is DiggingSession.Target.down:
@@ -338,9 +346,38 @@ class DiggingActionRow(ui.ActionRow['DiggingView']):
             if depth > self.session.record.deepest_dig:
                 await self.session.record.update(deepest_dig=depth, connection=conn)
 
+            if quest := self.session.quests.get_active_quest(QuestTemplates.dig_to_depth):
+                if depth > quest.progress:
+                    await quest.set_progress(depth, connection=conn)
+
             kwargs = {
                 item.key: quantity for item, quantity in self.session.collected_items.items()
             }
+            if quest := self.session.quests.get_active_quest(QuestTemplates.dig_coins):
+                await quest.add_progress(self.session.collected_coins, connection=conn)
+            if quest := self.session.quests.get_active_quest(QuestTemplates.dig_items):  # non-dirt
+                await quest.add_progress(
+                    sum(
+                        quantity
+                        for item, quantity in self.session.collected_items.items()
+                        if item.type is not ItemType.dirt
+                    ),
+                    connection=conn,
+                )
+            if quest := self.session.quests.get_active_quest(QuestTemplates.dig_single_item):
+                await quest.add_progress(kwargs.get(quest.quest.extra, 0), connection=conn)
+            if quest := self.session.quests.get_active_quest(QuestTemplates.dig_ores):
+                await quest.add_progress(
+                    sum(
+                        quantity
+                        for item, quantity in self.session.collected_items.items()
+                        if item.type is ItemType.ore
+                    ),
+                    connection=conn,
+                )
+            if quest := self.session.quests.get_active_quest(QuestTemplates.dig_stamina):
+                await quest.add_progress(self.session.max_stamina - self.session.stamina, connection=conn)
+
             self.session.collected_coins = await self.session.record.add_coins(
                 self.session.collected_coins, connection=conn,
             )
@@ -496,23 +533,21 @@ class DiggingSession:
 
     OVERLAY_WIDTH: int = CELL_WIDTH * 8 // 10
     OVERLAY_PADDING: int = (CELL_WIDTH - OVERLAY_WIDTH) // 2
-
-    BASE_BG: Image.Image = Image.open('assets/dig_bg.png').convert('RGBA')
-    BASE_BG = BASE_BG.resize((IMAGE_WIDTH, BASE_BG.height * IMAGE_WIDTH // BASE_BG.width), Image.NEAREST)
     BG_OFFSET: int = CELL_WIDTH // 2
 
-    AVATAR_MASK: Image.Image = Image.open('assets/avatar_rounded_mask.png').convert('L').resize(
+    AVATAR_MASK: Image.Image = Image.open('assets/digging/avatar_rounded_mask.png').convert('L').resize(
         (OVERLAY_WIDTH, OVERLAY_WIDTH),
         Image.NEAREST,
     )
     VISIBILITY: int = 2
     GEN_IMAGES_PER_DIRT: int = 8
 
-    # Cache for generated dirt images
-    coin_image: ClassVar[Image.Image] = Image.open('assets/padded_coin.png').convert('RGBA').resize(
+    # Cache for generated images
+    coin_image: ClassVar[Image.Image] = Image.open('assets/digging/padded_coin.png').convert('RGBA').resize(
         (OVERLAY_WIDTH, OVERLAY_WIDTH),
         Image.NEAREST,
     )
+    backdrops: ClassVar[dict[Biome, Image.Image]] = {}
     image_cache: ClassVar[dict[Item, Image.Image]] = {}
     dirt_images: ClassVar[dict[Item, list[Image.Image]]] = {}
 
@@ -558,6 +593,7 @@ class DiggingSession:
         self.record: UserRecord = await self.ctx.fetch_author_record()
         self.inventory: InventoryManager = await self.record.inventory_manager.wait()
         self.pets: PetManager = await self.record.pet_manager.wait()
+        self.quests: QuestManager = await self.record.quest_manager.wait()
 
         self.backpack: Backpack = self.record.equipped_backpack
         self.shovel: Item[ToolMetadata] | None = next(
@@ -594,6 +630,7 @@ class DiggingSession:
                 mask.putpixel((x, y), min(a, mask_a))
         self.avatar_image.putalpha(mask)
 
+        await self.prepare_backdrop()
         await self.prepare_assets()
         self.grid: list[list[Cell | None]] = [self.generate_row(y) for y in self.y_range if y >= 0]
 
@@ -694,6 +731,17 @@ class DiggingSession:
 
         return out
 
+    @executor_function
+    def prepare_backdrop(self) -> None:
+        if self.biome in self.backdrops:
+            self._backdrop = self.backdrops[self.biome]
+            return
+
+        w = self.IMAGE_WIDTH
+        backdrop = Image.open(self.biome.backdrop_path).convert('RGBA')
+        self.backdrops[self.biome] = backdrop.resize((w, backdrop.height * w // backdrop.width), Image.NEAREST)
+        self._backdrop: Image.Image = self.backdrops[self.biome]
+
     async def prepare_assets(self) -> None:
         for layer in set(self.biome.get_layer(y) for y in (self.y_range.start, self.greatest_visible_y)):
             if layer.dirt not in self.dirt_images:
@@ -766,7 +814,7 @@ class DiggingSession:
         # Draw the background ONLY if there is space up top
         true_origin = self.Y_OFFSET - max(0, self.y) * self.CELL_WIDTH
         if true_origin > -self.BG_OFFSET:
-            image.paste(self.BASE_BG, (0, true_origin - self.BASE_BG.height + self.BG_OFFSET), self.BASE_BG)
+            image.paste(self._backdrop, (0, true_origin - self._backdrop.height + self.BG_OFFSET), self._backdrop)
 
         # Draw avatar
         ax, ay = self.grid_to_image_coords(self.x, self.y)
@@ -859,6 +907,9 @@ class DiggingSession:
                 self.target_cell.hp -= remaining
                 remaining = 0
 
+        if quest := self.quests.get_active_quest(QuestTemplates.dig_hp):
+            quest.add_progress(total_hp - remaining)
+
         return added_coins, added_items
 
     def surrounding_dig(self, base_hp: int, *, radius: int = 2) -> tuple[int, int, defaultdict[Item, int]]:
@@ -901,5 +952,8 @@ class DiggingSession:
         self.target = self.Target.down
         while self.target_cell is None:
             self.move()
+
+        if quest := self.quests.get_active_quest(QuestTemplates.dig_hp):
+            quest.add_progress(total_hp)
 
         return total_hp, added_coins, added_items

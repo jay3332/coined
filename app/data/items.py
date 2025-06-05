@@ -27,7 +27,7 @@ from discord.ext.commands import BadArgument
 from discord.utils import format_dt
 
 from app.data.pets import Pet, Pets, generate_pet_weights
-from app.util.common import get_by_key, humanize_duration, ordinal, pluralize
+from app.util.common import get_by_key, humanize_duration, humanize_list, ordinal, pluralize
 from app.util.structures import DottedDict
 from config import Emojis
 
@@ -267,6 +267,11 @@ class Item(Generic[T]):
     @property
     def removable(self) -> bool:
         return self.removal_callback is not None
+
+    def quantify(self, quantity: int) -> str:
+        if quantity == 1:
+            return f'{self.singular} {self.name}'
+        return f'{quantity:,} {self.plural}'
 
     def get_sentence_chunk(self, quantity: int = 1, *, bold: bool = True) -> str:
         fmt = '{} **{}**' if bold else '{} {}'
@@ -526,6 +531,7 @@ class Items:
         description='A ban hammer, obtained from the Discord Mod job.',
         sell=1000,
         sellable=True,
+        rarity=ItemRarity.rare,
     )
 
     camera = Item(
@@ -2054,15 +2060,29 @@ class Reward(NamedTuple):
             items={get_by_key(Items, key): quantity for key, quantity in items_by_key.items()},
         )
 
-    def __str__(self) -> str:
+    @property
+    def chunks(self) -> list[str]:
         base = []
         if self.coins > 0:
             base.append(f'{Emojis.coin} **{self.coins:,}**')
-
         for item, quantity in self.items.items():
             base.append(item.get_sentence_chunk(quantity))
+        return base
 
-        return '\n'.join(f'- {chunk}' for chunk in base)
+    @property
+    def short(self) -> str:
+        return humanize_list(self.chunks) or 'N/A'
+
+    @property
+    def principal_emoji(self) -> str:
+        if self.items:
+            return max(self.items, key=lambda item: item.price).emoji
+        if self.coins > 0:
+            return Emojis.coin
+        return Emojis.space
+
+    def __str__(self) -> str:
+        return '\n'.join(f'- {chunk}' for chunk in self.chunks)
 
     def __add__(self, other: Reward) -> Reward:
         return Reward(

@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import Enum
 from heapq import nlargest
-from typing import Any, Final, TypeAlias, TYPE_CHECKING
+from typing import Any, Final, NamedTuple, TypeAlias, TYPE_CHECKING
 
 import discord
 
@@ -15,7 +15,7 @@ if TYPE_CHECKING:
     from app.core import Context
     from app.util.types import AsyncCallable, TypedInteraction
 
-    EventCallback: TypeAlias = AsyncCallable[['Events', Context, 'Event'], Any]
+    EventCallback: TypeAlias = AsyncCallable[['Events', Context, 'Event'], 'EventResults']
 
 
 class EventRarity(Enum):
@@ -37,6 +37,15 @@ EVENT_RARITY_WEIGHTS: Final[dict[EventRarity, int]] = {
 }
 
 
+class EventResults(NamedTuple):
+    participants: set[int]  # user_ids
+    winners: set[int]  # user_ids
+
+    @property
+    def losers(self) -> set[int]:
+        return self.participants - self.winners
+
+
 @dataclass
 class Event:
     key: str
@@ -51,8 +60,8 @@ class Event:
     def __hash__(self) -> int:
         return hash(self.key)
 
-    async def __call__(self, ctx: Context) -> None:
-        await self._callback(_EVENTS_INSTANCE, ctx, self)
+    async def __call__(self, ctx: Context) -> EventResults:
+        return await self._callback(_EVENTS_INSTANCE, ctx, self)
 
 
 class ViewBattleEarningsButton(discord.ui.Button):
@@ -96,7 +105,7 @@ class Events:
         description: str,
         opponent: Enemy,
         time_limit: int = 180,
-    ) -> None:
+    ) -> EventResults:
         view = PvEBattleView.public(
             ctx,
             opponent=opponent,
@@ -109,12 +118,13 @@ class Events:
         view._original_message = original
         await view.wait()
 
+        participants = set(m.id for m in view.players)
         if not view.won:
             await ctx.send(
                 f'You guys stink, you weren\'t able to take down {opponent.display} in time. Better luck next time!',
                 reference=original,
             )
-            return
+            return EventResults(participants=participants, winners=set())
 
         damage_mapping = {
             player.user: hp for player, hp in view.damage_dealt.items()
@@ -150,12 +160,13 @@ class Events:
             reference=original,
             view=finishing_view,
         )
+        return EventResults(participants=participants, winners=participants)
 
     karen = Event(key='karen', name='Karen', rarity=EventRarity.common)
 
     @karen.callback
-    async def karen_callback(self, ctx: Context, event: Event) -> None:
-        await self._battle_event(
+    async def karen_callback(self, ctx: Context, event: Event) -> EventResults:
+        return await self._battle_event(
             ctx,
             event,
             description='A wild Karen has appeared! Join in the fight to take her down!',

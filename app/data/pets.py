@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 from collections import defaultdict
+from dataclasses import dataclass, field
 from enum import Enum
 from functools import total_ordering
-from typing import Callable, NamedTuple
+from typing import Callable
 
 from app.util.common import BaseCurve, ExponentialCurve, walk_collection
 from config import Emojis
@@ -22,6 +23,12 @@ class PetRarity(Enum):
     @property
     def emoji(self) -> str:
         return getattr(Emojis.Rarity, self.name)
+
+    @property
+    def singular(self) -> str:
+        if self in (PetRarity.uncommon, PetRarity.epic):
+            return 'an'
+        return 'a'
 
     def __lt__(self, other: PetRarity) -> bool:
         if not isinstance(other, PetRarity):
@@ -53,7 +60,8 @@ def generate_pet_weights(*, none: float = 0.0, **rarity_weights: float) -> dict[
     return weights
 
 
-class Pet(NamedTuple):
+@dataclass
+class Pet:
     name: str
     key: str
     emoji: str
@@ -66,7 +74,16 @@ class Pet(NamedTuple):
     # Leveling
     leveling_curve: BaseCurve = ExponentialCurve(50, 1.15, precision=10)
     max_level: int = 200
-    jumbo_emoji: list[str] = []  # large emoji made up of 4 emojis
+    jumbo_emoji: list[str] = field(default_factory=list)  # large emoji made up of 4 emojis
+    # Grammar
+    singular: str = None
+    plural: str = None
+
+    def __post_init__(self) -> None:
+        if not self.singular:
+            self.singular = 'an' if self.name.lower().startswith(tuple('aeiou')) else 'a'
+        if not self.plural:
+            self.plural = self.name + 's'
 
     @property
     def display(self) -> str:
@@ -171,6 +188,7 @@ class Pets:
             '<:bunny_3:1379687612788510783>',
             '<:bunny_4:1379687614558244939>',
         ],
+        plural='Bunnies',
     )
 
     hamster = Pet(
@@ -211,6 +229,7 @@ class Pets:
             '<:mouse_3:1379687671416229918>',
             '<:mouse_4:1379687673433952349>',
         ],
+        plural='Mice',
     )
 
     duck = Pet(
@@ -384,6 +403,7 @@ class Pets:
             '<:fox_3:1379687647856824341>',
             '<:fox_4:1379687649002131457>',
         ],
+        plural='Foxes',
     )
 
     jaguar = Pet(

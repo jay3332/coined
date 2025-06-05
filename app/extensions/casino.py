@@ -20,6 +20,7 @@ from app.core import (
 )
 from app.core.flags import Flags, flag
 from app.data.items import Items
+from app.data.quests import QuestTemplates
 from app.util.common import pluralize
 from app.util.converters import CasinoBet
 from app.util.structures import DottedDict
@@ -93,12 +94,13 @@ class ScratchButton(discord.ui.Button['ScratchView']):
 
                 self.view.embed.clear_fields()
                 self.view.embed.add_field(name='You got nothing!', value=message + f'\nYou now have {Emojis.coin} **{self.view.record.wallet:,}**.')
-
+                await _handle_quests(self.view.ctx, self.view.record, bet=self.view.bet)
             else:
                 self.view.embed.clear_fields()
                 gain = self.view.bet * self.view.multiplier
                 await self.view.record.add(wallet=gain)
                 profit = gain - self.view.bet
+                await _handle_quests(self.view.ctx, self.view.record, bet=self.view.bet, profit=profit)
 
                 self.view.embed.colour = Colors.success if profit > 0 else Colors.warning
 
@@ -131,6 +133,7 @@ class ScratchView(UserView):
         super().__init__(ctx.author, timeout=120)
         self.fill_cells()
         self.update_buttons()
+        self.ctx: Context = ctx
         self.record = ctx.db.get_user_record(ctx.author.id, fetch=False)
 
         self.scratches: int = 5
@@ -407,6 +410,7 @@ class Blackjack(UserView):
         embed = self.make_embed()
         embed.colour = Colors.error
         await self.record.add(wallet=-self.bet)
+        await _handle_quests(self.ctx, self.record, bet=self.bet)
 
         embed.add_field(
             name=f"**{message}**",
@@ -429,6 +433,7 @@ class Blackjack(UserView):
         multiplier += adjustment
         profit = round(self.bet * multiplier)
         await self.record.add(wallet=profit)
+        await _handle_quests(self.ctx, self.record, bet=self.bet, profit=profit)
 
         embed = self.make_embed()
         embed.colour = Colors.success
@@ -459,6 +464,7 @@ class Blackjack(UserView):
             """),
             inline=False,
         )
+        await _handle_quests(self.ctx, self.record, bet=self.bet)
         return embed
 
     async def tie(self, interaction: TypedInteraction, message: str) -> None:
@@ -624,6 +630,7 @@ class MinesSkullButton(discord.ui.Button['MinesView']):
         embed.colour = Colors.error
 
         await interaction.response.edit_message(embed=embed, view=self.view)
+        await _handle_quests(self.view.ctx, self.view.record, bet=self.view.bet)
         self.view.stop()
 
 
@@ -667,6 +674,7 @@ class MinesView(UserView):
             raise RuntimeError('should never have gotten here')
 
         await self.record.add(wallet=round(self.bet * self.multiplier))
+        await _handle_quests(self.ctx, self.record, bet=self.bet, profit=self.prospective_profit)
 
         expansion = (
             self.return_expansion.replace(Emojis.Expansion.single, Emojis.Expansion.first)
@@ -697,11 +705,16 @@ class MinesView(UserView):
         return embed
 
     @property
+    def prospective_profit(self) -> int:
+        """Calculates the prospective profit based on the current number of gems."""
+        return round(self.bet * (self.multiplier - 1))
+
+    @property
     def return_expansion(self) -> str:
         profit_multiplier = self.multiplier - 1
         return (
             f'\U0001f48e {self.gems} {Emojis.arrow} **{self.multiplier:.02f}x** (+{profit_multiplier:.02%})\n'
-            f'{Emojis.Expansion.single} {Emojis.coin} **+{round(profit_multiplier * self.bet):,}**'
+            f'{Emojis.Expansion.single} {Emojis.coin} **+{self.prospective_profit:,}**'
         )
 
     @property
@@ -726,6 +739,25 @@ class MinesFlags(Flags):
 class PokerFlags(Flags):
     small_blind: int = flag(short='s', aliases=('sb', 'small-blind'), converter=CasinoBet(5, 5000))
     big_blind: int = flag(short='b', aliases=('bb', 'big-blind'), converter=CasinoBet(10, 10000))
+
+
+async def _handle_quests(ctx: Context, record: UserRecord, *, bet: int, profit: int = 0, connection=None) -> None:
+    quests = await record.quest_manager.wait()
+
+    if quest := quests.get_active_quest(QuestTemplates.gamble_coins):
+        await quest.add_progress(bet, connection=connection)
+    if profit > 0:
+        if quest := quests.get_active_quest(QuestTemplates.gamble_wins):
+            await quest.add_progress(1, connection=connection)
+        if quest := quests.get_active_quest(QuestTemplates.gamble_wins_specific_command):
+            if ctx.command.qualified_name == quest.quest.extra:
+                await quest.add_progress(1, connection=connection)
+
+        if quest := quests.get_active_quest(QuestTemplates.gamble_profit):
+            await quest.add_progress(profit, connection=connection)
+        if quest := quests.get_active_quest(QuestTemplates.gamble_profit_specific_command):
+            if ctx.command.qualified_name == quest.quest.extra:
+                await quest.add_progress(profit, connection=connection)
 
 
 class Casino(Cog):
@@ -787,6 +819,7 @@ class Casino(Cog):
 
             profit = round(bet * multiplier)
             await record.add(wallet=profit)
+            await _handle_quests(ctx, record, bet=bet, profit=profit)
 
             embed.colour = Colors.success
             embed.set_author(name='Winner!', icon_url=ctx.author.display_avatar)
@@ -803,6 +836,7 @@ class Casino(Cog):
 
         else:
             await record.add(wallet=-bet)
+            await _handle_quests(ctx, record, bet=bet)
 
             embed.colour = Colors.error
             embed.set_author(name='Loser!', icon_url=ctx.author.display_avatar)
@@ -854,6 +888,7 @@ class Casino(Cog):
         embed.description = f'**\xbb** {" ".join(s.emoji for s in slots)} **\xab**'
         embed.colour = Colors.success if multiplier else Colors.error
 
+        profit = 0
         if multiplier:
             adjustment, adjusted_text = self.adjust_multiplier(record)
             multiplier += adjustment
@@ -871,6 +906,7 @@ class Casino(Cog):
                 value=f'You lost {Emojis.coin} **{bet:,}**.\nYou now have {Emojis.coin} **{record.wallet:,}**.',
             )
 
+        await _handle_quests(ctx, record, bet=bet, profit=profit)
         await asyncio.sleep(random.uniform(2.5, 4.0))
         yield embed, EDIT
 

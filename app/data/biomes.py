@@ -51,10 +51,21 @@ class Layer(NamedTuple):
         return image
 
 
+class UnlockRequirements(NamedTuple):
+    level: int
+    prestige: int = 0
+    price: int = 0
+
+
 class Biome(NamedTuple):
     key: str
     name: str
+    description: str
+    unlock_requirements: UnlockRequirements
+    entry_price: int  # Price to enter the biome to dig, charged every time!
+    backdrop_path: str
     layers: list[Layer]
+    ore_hp_multiplier: float = 1.0
 
     def get_layer(self, y: int) -> Layer:
         """Returns the layer for the given GRID y coordinate."""
@@ -62,11 +73,23 @@ class Biome(NamedTuple):
             return self.layers[0]
         return self.layers[bisect_left(self.layers, y, key=lambda layer: layer.depth) - 1]
 
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, Biome):
+            return False
+        return self.key == other.key
+
+    def __hash__(self) -> int:
+        return hash(self.key)
+
 
 class Biomes:
     backyard = Biome(
         key='backyard',
         name='Backyard',
+        description='A familiar place, which you can return to every time',
+        unlock_requirements=UnlockRequirements(level=0),
+        entry_price=0,
+        backdrop_path='assets/digging/backdrops/backyard.png',
         layers=[
             Layer(
                 depth=0,
@@ -216,3 +239,38 @@ class Biomes:
             ),
         ]
     )
+
+    # desert = Biome(
+    #     key='desert',
+    #     name='Desert',
+    #     description='Hot and dry but full of treasures',
+    #     unlock_requirements=UnlockRequirements(level=10, price=500_000),
+    #     entry_price=1_000,
+    #     backdrop_path='assets/digging/backdrops/desert.png',
+    #     layers=[
+    #         Layer(
+    #             depth=0,
+    #             items={
+    #                 None: 1.8,
+    #                 # pickaxe-based:
+    #                 Items.worm: 0.3,
+    #                 Items.gummy_worm: 0.2,
+    #                 Items.earthworm: 0.07,
+    #                 Items.hook_worm: 0.02,
+    #                 Items.poly_worm: 0.007,
+    #                 Items.ancient_relic: 0.0001,  # 0.01%
+    #                 # shovel-based:
+    #                 Items.iron: 0.5,
+    #                 Items.copper: 0.25,
+    #                 Items.silver: 0.1,
+    #                 Items.gold: 0.03,
+    #                 Items.obsidian: 0.0075,
+    #                 Items.emerald: 0.003,
+    #                 Items.diamond: 0.00075,
+    #             },
+    #         ),
+    #         Layer(),
+    #         Layer(),
+    #     ],
+    #     ore_hp_multiplier=3,
+    # )
