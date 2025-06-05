@@ -2265,6 +2265,16 @@ class QuestsNavRow(discord.ui.ActionRow['QuestsView']):
         await interaction.response.edit_message(view=self.view)
 
 
+class RefreshQuestsButton(discord.ui.Button['QuestsView']):
+    def __init__(self, container: QuestsContainer) -> None:
+        super().__init__(emoji=Emojis.refresh)
+        self.container: QuestsContainer = container
+
+    async def callback(self, interaction: TypedInteraction) -> None:
+        await self.container.update()
+        await interaction.response.edit_message(view=self.container.view)
+
+
 class QuestsContainer(discord.ui.Container['QuestsView']):
     def __init__(self) -> None:
         super().__init__(accent_color=Colors.secondary)
@@ -2285,9 +2295,10 @@ class QuestsContainer(discord.ui.Container['QuestsView']):
         subtext = (
             'Showing daily quests' if self.showing_daily_quests else 'Showing recurring quests'
         )
-        self.add_item(discord.ui.TextDisplay(
+        self.add_item(discord.ui.Section(
             f'### {self.ctx.author.name}\'s Quests\n-# {subtext}\n'
-            f'-# You have a total of {Emojis.ticket} **{self.view.record.tickets:,}**'
+            f'-# You have a total of {Emojis.ticket} **{self.view.record.tickets:,}**',
+            accessory=RefreshQuestsButton(self),
         ))
         self.add_item(discord.ui.Separator(spacing=discord.SeparatorSize.large))
 
