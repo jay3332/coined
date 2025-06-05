@@ -1212,9 +1212,8 @@ QUEST_PASS_REWARDS: list[Reward] = [
     Reward(coins=100_000),  # 25
     Reward(items={Items.mythic_crate: 1}),
     Reward(coins=125_000),
-    Reward(items={Items.legendary_crate: 1}),
-    Reward(coins=150_000),
     Reward(items={Items.mythic_crate: 1}),
+    Reward(coins=150_000),
     Reward(items={Items.plasma_shovel: 1}),  # 30
 ]
 
