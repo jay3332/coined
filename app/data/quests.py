@@ -635,7 +635,7 @@ class QuestTemplates:
 
     @catch_fish.to_get_tickets
     def get_catch_fish_tickets(self, quest: Quest) -> int:
-        return quest.arg // 5 * 7
+        return quest.arg // 5
 
     catch_specific_fish = QuestTemplate(key='catch_specific_fish', category=QuestCategory.fish)
 
