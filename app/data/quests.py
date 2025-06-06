@@ -50,6 +50,9 @@ class QuestSlot(Enum):
 
         return weighted_choice(weights)
 
+    def __hash__(self) -> int:
+        return hash(self.value)
+
 
 class QuestCategory(Enum):
     vote = 0  # Vote on Top.gg once or many times
