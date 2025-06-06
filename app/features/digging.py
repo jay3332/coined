@@ -364,8 +364,8 @@ class DiggingActionRow(ui.ActionRow['DiggingView']):
                     ),
                     connection=conn,
                 )
-            if quest := self.session.quests.get_active_quest(QuestTemplates.dig_single_item):
-                await quest.add_progress(kwargs.get(quest.quest.extra, 0), connection=conn)
+            # if quest := self.session.quests.get_active_quest(QuestTemplates.dig_single_item):
+            #     await quest.add_progress(kwargs.get(quest.quest.extra, 0), connection=conn)
             if quest := self.session.quests.get_active_quest(QuestTemplates.dig_ores):
                 await quest.add_progress(
                     sum(
