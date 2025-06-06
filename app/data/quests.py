@@ -812,7 +812,7 @@ class QuestTemplates:
     def get_dig_ores_tickets(self, quest: Quest) -> int:
         return quest.arg
 
-    dig_single_item = QuestTemplate(key='dig_single_item', category=QuestCategory.dig)
+    # dig_single_item = QuestTemplate(key='dig_single_item', category=QuestCategory.dig)
 
     dig_stamina = QuestTemplate(key='dig_stamina', category=QuestCategory.dig)
 
