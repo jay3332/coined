@@ -46,7 +46,7 @@ from app.util.common import (
 )
 from app.util.converters import CaseInsensitiveMemberConverter, Investment
 from app.util.structures import LockWithReason
-from app.util.views import AnyUser, StaticCommandButton, UserView
+from app.util.views import AnyUser, StaticCommandButton, UserLayoutView, UserView
 from config import Colors, Emojis
 
 if TYPE_CHECKING:
@@ -2349,9 +2349,9 @@ class QuestsContainer(discord.ui.Container['QuestsView']):
         ))
 
 
-class QuestsView(discord.ui.LayoutView):
+class QuestsView(UserLayoutView):
     def __init__(self, ctx: Context, record: UserRecord) -> None:
-        super().__init__(timeout=300)
+        super().__init__(ctx.author, timeout=300)
         self.ctx = ctx
         self.record = record
         self.quests = record.quest_manager
@@ -2432,9 +2432,9 @@ class QuestPassContainer(discord.ui.Container['QuestPassView'], NavigableItem):
         self.add_item(large_sep()).add_item(self.nav)
 
 
-class QuestPassView(discord.ui.LayoutView):
+class QuestPassView(UserLayoutView):
     def __init__(self, ctx: Context, record: UserRecord) -> None:
-        super().__init__(timeout=300)
+        super().__init__(ctx.author, timeout=300)
         self.ctx = ctx
         self.record = record
         self.add_item(container := QuestPassContainer(ctx, record))

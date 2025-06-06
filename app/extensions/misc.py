@@ -567,6 +567,10 @@ class Miscellaneous(Cog):
             Items.cigarette.get_display_name(bold=True),
         ),
         (
+            lambda record: record.job and record.job and record.job.cooldown_expires_at,
+            'Work shift',
+        ),
+        (
             lambda record: record.last_dbl_vote and record.last_dbl_vote + datetime.timedelta(hours=12),
             '[**Vote (top.gg)**](https://top.gg/bot/{client_id}/vote)',
         ),
