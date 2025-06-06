@@ -838,7 +838,7 @@ class QuestTemplates:
 
     @dig_stamina.to_get_title
     def get_dig_stamina_title(self, quest: Quest) -> str:
-        return f'{Emojis.bolt} Use {quest.arg:,} stamina while digging'
+        return f'{Emojis.bolt} Use up a total of {quest.arg:,} stamina while digging'
 
     @dig_stamina.to_get_tickets
     def get_dig_stamina_tickets(self, quest: Quest) -> int:
@@ -1054,7 +1054,7 @@ class QuestTemplates:
     @staticmethod
     async def _get_harvest_arg(slot: QuestSlot, record: UserRecord) -> tuple[int, int]:
         crops = await record.crop_manager.wait()
-        count = max(sum(crop.crop is not None for crop in crops.cached.values()), 5)
+        count = min(max(sum(crop.crop is not None for crop in crops.cached.values()) // 3, 4), 12)
         match slot:
             case QuestSlot.recurring_easy:
                 return random.randint(2, 4) * count, count
