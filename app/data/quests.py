@@ -46,7 +46,9 @@ class QuestSlot(Enum):
 
         weights = _WEIGHTS[self]
         if exclude is not None:
-            weights = {k: v for k, v in weights.items() if k not in exclude} or weights
+            weights = {k: v for k, v in weights.items() if k not in exclude}
+        if not weights or sum(weights.values()) == 0:
+            weights = _WEIGHTS[self]
 
         return weighted_choice(weights)
 
