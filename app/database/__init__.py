@@ -1460,13 +1460,19 @@ class CompletedQuest(NamedTuple):
     refreshes_at: datetime.datetime
 
 
+class ExpiredQuest(NamedTuple):
+    slot: QuestSlot
+    expired_at: datetime.datetime
+    refreshes_at: datetime.datetime
+
+
 class QuestSlots(NamedTuple):
     vote: QuestRecord | CompletedQuest
     recurring_easy: QuestRecord
     recurring_mid: QuestRecord
     recurring_hard: QuestRecord
-    daily_1: QuestRecord | CompletedQuest
-    daily_2: QuestRecord | CompletedQuest
+    daily_1: QuestRecord | CompletedQuest | ExpiredQuest
+    daily_2: QuestRecord | CompletedQuest | ExpiredQuest
 
 
 class QuestManager:
@@ -1533,35 +1539,51 @@ class QuestManager:
         self.cached.appendleft(record)
         return record
 
-    def get_quest_for_slot(self, slot: QuestSlot, /) -> QuestRecord | CompletedQuest:
+    def get_quest_for_slot(self, slot: QuestSlot, /) -> QuestRecord | CompletedQuest | ExpiredQuest:
         """Returns the quest for the specified slot, or a datetime specifying when this quest should regenerate."""
         if record := self.get_active_quest_for_slot(slot):
             return record
         if slot is QuestSlot.vote:
             return CompletedQuest(slot, self.record.last_dbl_vote + datetime.timedelta(hours=12))
         if slot in (QuestSlot.daily_1, QuestSlot.daily_2):
-            return CompletedQuest(slot, next_utc_midnight())
+            if record := self.get_most_recent_quest_for_slot(slot):
+                if record.is_expired:
+                    return ExpiredQuest(slot, record.expires_at, next_utc_midnight())
+                if record.is_completed:
+                    return CompletedQuest(slot, next_utc_midnight())
         raise NotImplementedError
+
+    async def refresh_daily_quest(self, slot: QuestSlot) -> QuestRecord | CompletedQuest | ExpiredQuest:
+        """Similar to ``get_quest_for_slot`` but refreshes the quest if past expiry."""
+        record = self.get_quest_for_slot(slot)
+        if isinstance(record, QuestRecord) and record.is_expired:
+            return await self.generate_quest(slot)
+
+        if isinstance(record, CompletedQuest) and discord.utils.utcnow() > record.refreshes_at:
+            return await self.generate_quest(slot)
+        if isinstance(record, ExpiredQuest) and discord.utils.utcnow() > record.expired_at:
+            return await self.generate_quest(slot)
+
+        return record
 
     async def refresh_slots(self) -> QuestSlots:
         if not self.all_active_quests:
             await self.load_quests()
 
-        daily_1 = self.get_quest_for_slot(QuestSlot.daily_1)
-        daily_2 = self.get_quest_for_slot(QuestSlot.daily_2)
-
-        if isinstance(daily_1, CompletedQuest) and not self.get_most_recent_quest_for_slot(QuestSlot.daily_1):
-            daily_1 = await self.generate_quest(QuestSlot.daily_1)
-        if isinstance(daily_2, CompletedQuest) and not self.get_most_recent_quest_for_slot(QuestSlot.daily_2):
-            daily_2 = await self.generate_quest(QuestSlot.daily_2)
+        vote = self.get_quest_for_slot(QuestSlot.vote)
+        if (
+            isinstance(vote, CompletedQuest)
+            and discord.utils.utcnow() > self.record.last_dbl_vote + datetime.timedelta(hours=12)
+        ):
+            vote = await self.generate_quest(QuestSlot.vote)
 
         return QuestSlots(
-            vote=self.get_quest_for_slot(QuestSlot.vote),
+            vote=vote,
             recurring_easy=await self.get_or_create_active_quest_for_slot(QuestSlot.recurring_easy),
             recurring_mid=await self.get_or_create_active_quest_for_slot(QuestSlot.recurring_mid),
             recurring_hard=await self.get_or_create_active_quest_for_slot(QuestSlot.recurring_hard),
-            daily_1=daily_1,
-            daily_2=daily_2,
+            daily_1=await self.refresh_daily_quest(QuestSlot.daily_1),
+            daily_2=await self.refresh_daily_quest(QuestSlot.daily_2),
         )
 
     async def generate_quest(self, slot: QuestSlot) -> QuestRecord:
