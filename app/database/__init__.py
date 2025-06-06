@@ -1591,7 +1591,6 @@ class QuestManager:
         # deduce a good template
         previous = self.get_most_recent_quest_for_slot(slot)
         if previous:
-            assert not previous.is_active
             base = previous.completed_at or previous.expires_at
         else:
             base = discord.utils.utcnow()
