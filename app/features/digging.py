@@ -908,7 +908,7 @@ class DiggingSession:
                 remaining = 0
 
         if quest := self.quests.get_active_quest(QuestTemplates.dig_hp):
-            quest.add_progress(total_hp - remaining)
+            self.ctx.bot.loop.create_task(quest.add_progress(total_hp - remaining))
 
         return added_coins, added_items
 
@@ -954,6 +954,6 @@ class DiggingSession:
             self.move()
 
         if quest := self.quests.get_active_quest(QuestTemplates.dig_hp):
-            quest.add_progress(total_hp)
+            self.ctx.bot.loop.create_task(quest.add_progress(total_hp))
 
         return total_hp, added_coins, added_items
