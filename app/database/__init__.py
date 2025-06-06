@@ -8,7 +8,6 @@ from abc import ABC, abstractmethod
 from collections import defaultdict, deque
 from dataclasses import dataclass
 from enum import IntEnum
-from itertools import islice
 from string import ascii_letters
 from typing import Any, Awaitable, Callable, Generator, Iterable, Literal, NamedTuple, Protocol, overload, TYPE_CHECKING
 
@@ -1482,23 +1481,19 @@ class QuestManager:
         self._task = record.db.bot.loop.create_task(self.fetch())
 
     @property
-    def _recent_cached(self) -> Iterable[QuestRecord]:
-        return islice(self.cached, 0, 10)
-
-    @property
     def all_active_quests(self) -> list[QuestRecord]:
         """Returns all active quests."""
-        return [record for record in self._recent_cached if record.is_active]
+        return [record for record in self.cached if record.is_active]
 
     def get_active_quest(self, template: QuestTemplate) -> QuestRecord | None:
-        for record in self._recent_cached:
+        for record in self.cached:
             if record.quest.template is template and record.is_active:
                 return record
         return None
 
     def get_active_quest_for_slot(self, slot: QuestSlot, /) -> QuestRecord | None:
         """Returns the first active quest of the specified type."""
-        for record in self._recent_cached:
+        for record in self.cached:
             if record.quest.slot is slot and record.is_active:
                 return record
         return None
