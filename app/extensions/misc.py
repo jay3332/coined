@@ -568,7 +568,7 @@ class Miscellaneous(Cog):
         ),
         (
             lambda record: record.job and record.job and record.job.cooldown_expires_at,
-            'Work shift',
+            '**Work shift**',
         ),
         (
             lambda record: record.last_dbl_vote and record.last_dbl_vote + datetime.timedelta(hours=12),
