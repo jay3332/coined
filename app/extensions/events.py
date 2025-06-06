@@ -464,28 +464,20 @@ class EventsCog(Cog, name='Events'):
                 if entry.quest.extra == ctx.command.qualified_name:
                     await entry.add_progress(1, connection=conn)
 
-            # Events
-            if not is_currency or random.random() > 0.04:
-                return
-            lock = self._channel_event_locks[ctx.channel.id]
-            if lock.locked():
-                return
+        # Events
+        if not is_currency or random.random() > 0.04:
+            return
+        lock = self._channel_event_locks[ctx.channel.id]
+        if lock.locked():
+            return
 
-            old = ctx._message
-            async with lock:
-                rarity = random.choices(list(EVENT_RARITY_WEIGHTS), weights=list(EVENT_RARITY_WEIGHTS.values()))[0]
-                if choices := [e for e in walk_collection(Events, Event) if e.rarity is rarity]:
-                    results = await random.choice(choices)(ctx)
+        old = ctx._message
+        async with lock:
+            rarity = random.choices(list(EVENT_RARITY_WEIGHTS), weights=list(EVENT_RARITY_WEIGHTS.values()))[0]
+            if choices := [e for e in walk_collection(Events, Event) if e.rarity is rarity]:
+                await random.choice(choices)(ctx)
 
-                    if ctx.author.id in results.participants:
-                        if entry := quests.get_active_quest(QuestTemplates.event_participant):
-                            await entry.add_progress(1, connection=conn)
-
-                    if ctx.author.id in results.winners:
-                        if entry := quests.get_active_quest(QuestTemplates.event_winner):
-                            await entry.add_progress(1, connection=conn)
-
-            ctx._message = old
+        ctx._message = old
 
 
 setup = EventsCog.simple_setup

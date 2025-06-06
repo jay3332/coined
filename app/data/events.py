@@ -8,6 +8,7 @@ from typing import Any, Final, NamedTuple, TypeAlias, TYPE_CHECKING
 import discord
 
 from app.data.enemies import Enemies, Enemy
+from app.data.quests import QuestTemplates
 from app.features.battles import AttackCommentaryEntry, PvEBattleView
 from config import Emojis
 
@@ -61,7 +62,20 @@ class Event:
         return hash(self.key)
 
     async def __call__(self, ctx: Context) -> EventResults:
-        return await self._callback(_EVENTS_INSTANCE, ctx, self)
+        results = await self._callback(_EVENTS_INSTANCE, ctx, self)
+
+        async with ctx.db.acquire() as conn:
+            for user_id in results.participants:
+                quests = await ctx.db.get_user_record(user_id, fetch=False).quest_manager.wait()
+
+                if entry := quests.get_active_quest(QuestTemplates.event_participant):
+                    await entry.add_progress(1, connection=conn)
+
+                if user_id in results.winners:
+                    if entry := quests.get_active_quest(QuestTemplates.event_winner):
+                        await entry.add_progress(1, connection=conn)
+
+        return results
 
 
 class ViewBattleEarningsButton(discord.ui.Button):
