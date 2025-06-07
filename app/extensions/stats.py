@@ -170,7 +170,7 @@ class GuildGraphFlags(GraphFlags):
 
 class RefreshBalanceButton(discord.ui.Button):
     def __init__(self, cog: Stats, *, user: discord.User, record: UserRecord, color: int) -> None:
-        super().__init__(style=discord.ButtonStyle.secondary, label='Refresh')
+        super().__init__(style=discord.ButtonStyle.secondary, emoji=Emojis.refresh)
         self.cog = cog
         self.user = user
         self.record = record
@@ -183,7 +183,7 @@ class RefreshBalanceButton(discord.ui.Button):
 
 class RefreshInventoryButton(discord.ui.Button):
     def __init__(self, ctx: Context, user: discord.User, inventory: InventoryManager, color: int) -> None:
-        super().__init__(style=discord.ButtonStyle.secondary, label='Refresh', row=1)
+        super().__init__(style=discord.ButtonStyle.secondary, emoji=Emojis.refresh, row=1)
         self.cog: Stats = ctx.cog  # type: ignore
         self.ctx = ctx
         self.user = user
