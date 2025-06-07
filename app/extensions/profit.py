@@ -38,7 +38,7 @@ from app.extensions.misc import _get_retry_after
 from app.features.battles import PvEBattleView
 from app.features.digging import DiggingView
 from app.util.common import (
-    expansion_list,
+    cutoff, expansion_list,
     humanize_list,
     image_url_from_emoji,
     progress_bar,
@@ -1698,7 +1698,7 @@ class TriviaView(UserView):
             self.add_item(TriviaButton(label='False', style=discord.ButtonStyle.danger))
         else:
             for answer in question.answers:
-                self.add_item(TriviaButton(label=answer, style=discord.ButtonStyle.primary))
+                self.add_item(TriviaButton(label=cutoff(answer, 80), style=discord.ButtonStyle.primary))
 
         self.embed: discord.Embed = embed
         self.correct: str = question.correct_answer
