@@ -2376,7 +2376,7 @@ class QuestPassContainer(discord.ui.Container['QuestPassView'], NavigableItem):
         self.nav = NavigationRow(self)
 
         tier, _, _ = self.record.quest_pass_tier_data
-        self.page = (tier + 1) // self.REWARDS_PER_PAGE
+        self.page = min(self.max_pages, tier // self.REWARDS_PER_PAGE)
 
     @property
     def current_page(self) -> int:
