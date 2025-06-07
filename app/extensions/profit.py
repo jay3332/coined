@@ -1113,9 +1113,8 @@ class Profit(Cog):
             await record.add_random_exp(10, 15, chance=0.65, ctx=ctx, connection=conn)
 
             if view.choice == question.correct_answer:
-                async with ctx.db.acquire() as conn:
-                    profit = await record.add_coins(prize, connection=conn)
-                    await record.add(iq=1, connection=conn)
+                profit = await record.add_coins(prize, connection=conn)
+                await record.add(iq=1, connection=conn)
 
                 yield (
                     f'Correct! You earned {Emojis.coin} **{profit:,}**.\n'
@@ -1259,7 +1258,7 @@ class Profit(Cog):
     @active_pet(Pets.bee, energy=60, verb='produce honey')
     async def honey(self, ctx: Context) -> CommandResponse:
         """Claim honey from your bee."""
-        item = Items.honey
+        item = Items.jar_of_honey
         await self._pet_claim(ctx, pet=Pets.bee, item=item, energy=60)
         return (
             f'{Pets.bee.emoji} Your **bee** produces {item.get_sentence_chunk()} and stores it in your inventory.',
@@ -1586,7 +1585,7 @@ class Profit(Cog):
     @app_commands.describe(victim='The victim of your robbery.')
     @app_commands.allowed_installs(guilds=True, users=False)
     async def rob_app_command(self, ctx: HybridContext, victim: discord.Member) -> None:
-        await ctx.invoke(ctx.command, user=victim)
+        await ctx.invoke(ctx.command, user=victim)  # type: ignore
 
     @group(aliases={'q', 'qu', 'quest', 'pass', 'battlepass'}, hybrid=True, fallback='view', expand_subcommands=True)
     @simple_cooldown(2, 7)
@@ -2421,7 +2420,7 @@ class QuestPassContainer(discord.ui.Container['QuestPassView'], NavigableItem):
 
         tier, n, d = self.record.quest_pass_tier_data
         emojis = ' '.join(self._get_reward_emoji(t) for t in range(tier - 2, tier + 5))
-        chevron = (Emojis.space + ' ') * 2 + '\U0001f53a'
+        chevron = (Emojis.space + ' ') * 2 + '\U0001f53a'  # type: ignore
         self.add_item(discord.ui.TextDisplay(f'## {emojis}\n## {chevron}')).add_item(large_sep())
         self.add_item(discord.ui.TextDisplay(
             f'{Emojis.quest_pass} **Tier {tier}**\n'
