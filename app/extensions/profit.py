@@ -1603,6 +1603,18 @@ class Profit(Cog):
         await view.update()
         return view, REPLY, NO_EXTRA
 
+    @quests.command(name='daily', aliases={'day', 'd', 'today'}, hybrid=True)
+    @simple_cooldown(2, 7)
+    @user_max_concurrency(1)
+    async def quests_daily(self, ctx: Context) -> CommandResponse:
+        """View your current daily quests and progress."""
+        record = await ctx.db.get_user_record(ctx.author.id)
+        await record.quest_manager.wait()
+
+        view = QuestsView(ctx, record, daily=True)
+        await view.update()
+        return view, REPLY, NO_EXTRA
+
     @quests.command(name='pass', aliases={'bp', 'battlepass', 'rewards', 'reward', 'p'}, hybrid=True)
     @simple_cooldown(2, 7)
     @user_max_concurrency(1)
@@ -2276,9 +2288,9 @@ class RefreshQuestsButton(discord.ui.Button['QuestsView']):
 
 
 class QuestsContainer(discord.ui.Container['QuestsView']):
-    def __init__(self) -> None:
+    def __init__(self, *, daily: bool = False) -> None:
         super().__init__(accent_color=Colors.secondary)
-        self.showing_daily_quests: bool = False
+        self.showing_daily_quests: bool = daily
         self.nav = QuestsNavRow(self)
 
     @property
@@ -2350,12 +2362,12 @@ class QuestsContainer(discord.ui.Container['QuestsView']):
 
 
 class QuestsView(UserLayoutView):
-    def __init__(self, ctx: Context, record: UserRecord) -> None:
+    def __init__(self, ctx: Context, record: UserRecord, *, daily: bool = False) -> None:
         super().__init__(ctx.author, timeout=300)
         self.ctx = ctx
         self.record = record
         self.quests = record.quest_manager
-        self.add_item(container := QuestsContainer())
+        self.add_item(container := QuestsContainer(daily=daily))
         self._container = container
 
     async def update(self) -> None:
