@@ -879,6 +879,11 @@ class DiggingSession:
             self._cleanup_explored()
 
         self.position = self.target_xy
+        if self.target in (self.Target.left, self.Target.right):
+            tx, _ty = self.target_xy
+            if not (0 <= tx < self.GRID_WIDTH):
+                self.target = self.Target.down
+
         return out
 
     def cascading_dig(self, total_hp: int) -> tuple[int, defaultdict[Item, int]]:
