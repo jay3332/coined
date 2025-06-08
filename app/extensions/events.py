@@ -41,6 +41,12 @@ class EventsCog(Cog, name='Events'):
         self._global_stats: dict[str, int] | None = None
         self._global_stats_expiry: datetime.datetime | None = None
 
+    def cog_load(self) -> None:
+        self.update_topgg_server_count.start()
+
+    def cog_unload(self) -> None:
+        self.update_topgg_server_count.cancel()
+
     @discord.utils.cached_property
     def _cooldowns_remind_command(self) -> Any:
         return self.bot.get_command('cooldowns remind')
