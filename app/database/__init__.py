@@ -20,8 +20,15 @@ from app.data.backpacks import Backpack, Backpacks
 from app.data.items import CropMetadata, Item, Items, Reward, LEVEL_REWARDS
 from app.data.jobs import Job, Jobs
 from app.data.pets import Pet, Pets
-from app.data.quests import QUEST_PASS_CURVE, QUEST_PASS_REWARDS, Quest, QuestCategory, QuestTemplate, QuestTemplates, \
-    QuestSlot
+from app.data.quests import (
+    QUEST_PASS_CURVE,
+    QUEST_PASS_REWARDS,
+    Quest,
+    QuestCategory,
+    QuestTemplate,
+    QuestTemplates,
+    QuestSlot,
+)
 from app.data.skills import Skill, Skills
 from app.database.migrations import Migrator
 from app.util.common import (

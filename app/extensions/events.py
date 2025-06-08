@@ -7,11 +7,12 @@ import json
 import random
 import re
 from collections import defaultdict
+from logging import getLogger
 from typing import Any
 
 import better_exceptions
 import discord
-from discord.ext import commands
+from discord.ext import commands, tasks
 from discord.ext.ipc import ClientPayload, Server
 from discord.utils import format_dt
 
@@ -26,7 +27,10 @@ from app.util.ansi import AnsiColor, AnsiStringBuilder
 from app.util.common import cutoff, humanize_duration, pluralize, walk_collection
 from app.util.converters import BadItemArgument, IncompatibleItemType
 from app.util.views import StaticCommandButton
-from config import Colors, errors_channel, guilds_channel, support_server, votes_channel
+from config import Colors, beta, dbl_token, errors_channel, guilds_channel, support_server, votes_channel
+
+log = getLogger(__name__)
+EVERY_HALF_HOUR: list[datetime.time] = [datetime.time(hour, minute) for hour in range(0, 24) for minute in (0, 30)]
 
 
 class EventsCog(Cog, name='Events'):
@@ -398,6 +402,27 @@ class EventsCog(Cog, name='Events'):
         }
         self._global_stats_expiry = discord.utils.utcnow() + datetime.timedelta(minutes=10)
         return self._global_stats
+
+    @tasks.loop(time=EVERY_HALF_HOUR)
+    async def update_topgg_server_count(self) -> None:
+        BASE_URL = 'https://top.gg/api'
+
+        if beta:
+            return
+        count = len(self.bot.guilds)
+        if count < 100:  # probably a test token
+            return
+
+        async with self.bot.session.post(
+            f'{BASE_URL}/bots/{self.bot.user.id}/stats',
+            headers={'Authorization': dbl_token},
+            json={'server_count': count},
+        ) as response:
+            if not response.ok:
+                text = await response.text()
+                log.warning(f'Error updating server count on Top.gg: {text}')
+            else:
+                log.info(f'Updated server count on Top.gg to {count} servers')
 
     @Server.route()
     async def user_data(self, data: ClientPayload) -> dict[str, Any]:

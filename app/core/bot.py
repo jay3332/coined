@@ -43,7 +43,7 @@ jishaku.Flags.NO_UNDERSCORE = True
 jishaku.Flags.NO_DM_TRACEBACK = True
 
 ANSI_REGEX: re.Pattern[str] = re.compile(r"\x1b\[\d{2};[01]m")
-EVERY_TWO_HOURS: list[time] = [time(hour=hour) for hour in range(0, 24, 2)]
+EVERY_TWO_HOURS: list[time] = [time(hour) for hour in range(0, 24, 2)]
 
 
 class TrackingKeepAliveHandler(gateway.KeepAliveHandler):
