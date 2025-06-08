@@ -905,6 +905,7 @@ class CropManager:
         await self.wait()
 
         async with self._record.db.acquire() as conn:
+            valid = 0
             for x, y in coordinates:
                 info = self.get_crop_info(x, y)
                 if info is None or info.crop is None or (
@@ -925,13 +926,14 @@ class CropManager:
                     level_ups[x, y] = info.crop, new.level
 
                 harvested[info.crop.metadata.item] += random.randint(*info.crop.metadata.count)
+                valid += 1
 
             for item, quantity in harvested.items():
                 await self._record.inventory_manager.add_item(item, quantity, connection=conn)
 
             quests = await self._record.quest_manager.wait()
             if quest := quests.get_active_quest(QuestTemplates.harvest_crops):
-                await quest.add_progress(len(coordinates), connection=conn)
+                await quest.add_progress(valid, connection=conn)
 
         return level_ups, harvested
 
