@@ -1956,6 +1956,9 @@ class UserRecord(BaseRecord):
             yield Multiplier(0.02 + level * 0.006, f'{Pets.armadillo.display} (Level {level})')
 
         if ctx is not None and ctx.guild is not None:
+            if ctx.interaction and not ctx.interaction.is_guild_integration():
+                return
+
             if sum(not m.bot for m in ctx.guild.members) > 50:
                 yield Multiplier(0.25, 'Large Server', is_global=False)
 
