@@ -64,6 +64,11 @@ class _RandomColor:
         return discord.Color.random().value
 
 
+class OAuth:
+    client_id: int = 753017377922482248
+    client_secret: str = env('OAUTH_CLIENT_SECRET')
+
+
 class Colors:
     primary: int = _RandomColor()  # 0x6199f2
     secondary: int = 0x6199f2
