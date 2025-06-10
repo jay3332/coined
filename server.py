@@ -102,10 +102,8 @@ async def oauth_request(session: ClientSession, endpoint: DiscordRoute, **kwargs
         **kwargs,
     }
     async with session.request(endpoint.method, endpoint.url, headers=headers, data=urlencode(data)) as response:
-        from logging import warn
-        warn(j := await response.json())
         response.raise_for_status()
-        return j # await response.json()
+        return await response.json()
 
 
 class DiscordAuthorization(TypedDict):
@@ -155,7 +153,8 @@ async def oauth_exchange_code(request: web.Request) -> web.Response:
     response = await oauth_request(
         session := request.app['session'],
         DiscordRoute('POST', '/oauth2/token'),
-        grant_type='authorization_code', code=code, redirect_uri=website
+        grant_type='authorization_code', code=code,
+        redirect_uri=data.get('redirect_uri', website),
     )
     if 'access_token' not in response:
         raise web.HTTPServerError(text='Response did not contain access_token')
