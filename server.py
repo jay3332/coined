@@ -220,17 +220,25 @@ async def checkout_subscription(request: web.Request):
             raise web.HTTPBadRequest(text='Invalid recipient ID format')
         custom_field['text']['default_value'] = recipient_id
 
+    quantity = data.get('quantity', 1)
+    if not isinstance(quantity, int) or quantity < 1:
+        raise web.HTTPBadRequest(text='Quantity must be a positive integer')
+    if quantity > 100:
+        raise web.HTTPBadRequest(text='Quantity cannot exceed 100')
+
     product = data.get('product')
     if product not in ('coined_silver', 'coined_gold', 'coined_premium'):
         raise web.HTTPBadRequest(text='Invalid product specified')
 
+    if product in ('coined_silver', 'coined_gold') and quantity != 1:
+        raise web.HTTPBadRequest(text='Silver and Gold subscriptions can only be purchased in quantity of 1')
     if product == 'coined_premium':
         custom_field['label']['custom'] = 'Server ID to apply Coined Premium to'
 
     sku = getattr(StripeSKUs, product)
     stripe: StripeClient = request.app['stripe']
     kwargs = dict(
-        line_items=[{'price': sku, 'quantity': 1}],
+        line_items=[{'price': sku, 'quantity': quantity}],
         mode='subscription',
         success_url=f'{website}/checkout-success',
         cancel_url=f'{website}/store',
