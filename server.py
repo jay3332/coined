@@ -251,7 +251,7 @@ async def checkout_subscription(request: web.Request):
         kwargs['discounts'] = [{'coupon': coupon}]
 
     session = await stripe.checkout.sessions.create_async(kwargs)
-    raise web.HTTPFound(session.url)
+    raise web.HTTPSeeOther(session.url)
 
 
 async def create_app() -> web.Application:
