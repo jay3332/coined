@@ -262,6 +262,7 @@ async def checkout_subscription(request: web.Request):
         kwargs['customer_email'] = email
     if coupon := data.get('coupon'):
         kwargs['discounts'] = [{'coupon': coupon}]
+        kwargs.pop('allow_promotion_codes', None)
 
     session = await stripe.checkout.sessions.create_async(kwargs)
     raise web.HTTPSeeOther(session.url)
