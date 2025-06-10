@@ -192,7 +192,7 @@ async def user_info(request: web.Request) -> web.Response:
     return web.json_response(authorization['user'])
 
 
-async def main():
+async def create_app() -> web.Application:
     app = web.Application()
     app.add_routes(routes)
 
@@ -206,12 +206,11 @@ async def main():
     for route in list(app.router.routes()):
         cors.add(route)
 
-    loop = asyncio.get_event_loop()
-    async with ClientSession(loop=loop) as session:
-        app['session'] = session
-        web.run_app(app, port=8090, loop=loop)
+    app['session'] = ClientSession()
+    app.on_cleanup.append(lambda a: a['session'].close())
+    return app
+
 
 
 if __name__ == '__main__':
-    import asyncio
-    asyncio.run(main())
+    web.run_app(create_app(), port=8090)
