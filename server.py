@@ -206,9 +206,10 @@ async def main():
     for route in list(app.router.routes()):
         cors.add(route)
 
-    async with ClientSession() as session:
+    loop = asyncio.get_event_loop()
+    async with ClientSession(loop=loop) as session:
         app['session'] = session
-        web.run_app(app, port=8090)
+        web.run_app(app, port=8090, loop=loop)
 
 
 if __name__ == '__main__':
