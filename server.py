@@ -102,7 +102,8 @@ async def oauth_request(session: ClientSession, endpoint: DiscordRoute, **kwargs
         **kwargs,
     }
     async with session.request(endpoint.method, endpoint.url, headers=headers, data=urlencode(data)) as response:
-        print(j := await response.json())
+        from logging import warn
+        warn(j := await response.json())
         response.raise_for_status()
         return j # await response.json()
 
