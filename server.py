@@ -250,7 +250,7 @@ async def checkout_subscription(request: web.Request):
     if coupon := data.get('coupon'):
         kwargs['discounts'] = [{'coupon': coupon}]
 
-    session = await stripe.checkout.sessions.create_async()
+    session = await stripe.checkout.sessions.create_async(kwargs)
     raise web.HTTPFound(session.url)
 
 
