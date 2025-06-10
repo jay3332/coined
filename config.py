@@ -44,6 +44,7 @@ ipc_secret = env('IPC_SECRET')
 dbl_token: str = env('DBL_TOKEN')
 dbl_secret: str = env('DBL_SECRET')
 cdn_authorization: str = env('CDN_AUTHORIZATION')
+stripe_api_key: str = env('STRIPE_API_KEY')
 
 allowed_mentions: AllowedMentions = AllowedMentions.none()
 allowed_mentions.users = True
@@ -67,6 +68,12 @@ class _RandomColor:
 class OAuth:
     client_id: int = 753017377922482248
     client_secret: str = env('OAUTH_CLIENT_SECRET')
+
+
+class StripeSKUs:
+    coined_silver: str = 'price_1RXwmCGPHyZ4PQsxs66ixR0Q'
+    coined_gold: str = 'price_1RXwqbGPHyZ4PQsxnFxY6nV7'
+    coined_premium: str = 'price_1RXx07GPHyZ4PQsxWCRoNGye'
 
 
 class Colors:

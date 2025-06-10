@@ -10,7 +10,9 @@ matplotlib
 scipy
 numpy
 Pillow
+better_exceptions
+# Webserver dependencies (should move to separate microprocess)
 better-ipc
 aiohttp_cors
 aiohttp-ratelimiter
-better_exceptions
+stripe

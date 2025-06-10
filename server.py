@@ -8,9 +8,17 @@ from discord.ext.ipc import Client
 from discord.http import Route as DiscordRoute
 from discord.types.appinfo import PartialAppInfo
 from discord.types.user import User as DiscordUser
+from stripe import AIOHTTPClient as StripeAiohttp, StripeClient
 from typing_extensions import TypedDict
 
-from config import dbl_secret, ipc_secret, OAuth as OAuthConfig, website
+from config import (
+    dbl_secret,
+    ipc_secret,
+    OAuth as OAuthConfig,
+    stripe_api_key,
+    StripeSKUs,
+    website,
+)
 
 routes = web.RouteTableDef()
 ipc = Client(secret_key=ipc_secret)
@@ -101,6 +109,26 @@ async def fetch_oauth_authorization(session: ClientSession, *, access_token: str
         return await response.json()
 
 
+async def update_access_token(session: ClientSession, *, data: dict) -> web.Response:
+    access_token = data['access_token']
+    authorization = await fetch_oauth_authorization(session, access_token=access_token)
+    if not {'identify', 'guilds', 'email'}.issubset(set(authorization['scopes'])):
+        raise web.HTTPForbidden(text='Insufficient scopes granted by user')
+
+    await ipc.request(
+        'oauth_token_update',
+        user_id=authorization['user']['id'],
+        email=authorization['user'].get('email'),
+        access_token=data,
+    )
+    return web.json_response({
+        'user': authorization['user'],
+        'access_token': access_token,
+        'refresh_token': data.get('refresh_token'),
+        'expires_in': data.get('expires_in', 0),
+    })
+
+
 @routes.post('/oauth')
 @limiter.limit('5/5second')
 async def oauth_exchange_code(request: web.Request) -> web.Response:
@@ -117,52 +145,26 @@ async def oauth_exchange_code(request: web.Request) -> web.Response:
     if 'access_token' not in response:
         raise web.HTTPServerError(text='Response did not contain access_token')
 
-    authorization = await fetch_oauth_authorization(session, access_token=response['access_token'])
-    if not {'identify', 'guilds', 'email'}.issubset(set(authorization['scopes'])):
-        raise web.HTTPForbidden(text='Insufficient scopes granted by user')
-
-    await ipc.request(
-        'oauth_token_update',
-        user_id=authorization['user']['id'],
-        access_token=response['access_token'],
-    )
-    return web.json_response({
-        'user': authorization['user'],
-        'access_token': response['access_token'],
-        'refresh_token': response.get('refresh_token'),
-        'expires_in': response.get('expires_in', 0),
-    })
+    return await update_access_token(session, data=response)
 
 
 @routes.patch('/oauth')
 @limiter.limit('5/5second')
 async def oauth_refresh_token(request: web.Request) -> web.Response:
     data = await request.json()
-    user_id = data.get('user_id')
-    if not isinstance(user_id, int):
-        try:
-            user_id = int(user_id)
-        except ValueError:
-            user_id = None
-
     refresh_token = data.get('refresh_token')
     if not refresh_token:
         raise web.HTTPBadRequest(text='Must have `refresh_token` in JSON body')
 
     response = await oauth_request(
-        request.app['session'],
+        session := request.app['session'],
         DiscordRoute('POST', '/oauth2/token'),
         grant_type='refresh_token', refresh_token=refresh_token,
     )
     if 'access_token' not in response:
         raise web.HTTPServerError(text='Response did not contain access_token')
 
-    await ipc.request('oauth_token_update', user_id=user_id, access_token=response['access_token'])
-    return web.json_response({
-        'access_token': response['access_token'],
-        'refresh_token': response.get('refresh_token'),
-        'expires_in': response.get('expires_in', 0),
-    })
+    return await update_access_token(session, data=response)
 
 
 @routes.delete('/oauth')
@@ -192,6 +194,58 @@ async def user_info(request: web.Request) -> web.Response:
     return web.json_response(authorization['user'])
 
 
+@routes.post('/checkout/subscription')
+@limiter.limit('3/15second')
+async def checkout_subscription(request: web.Request):
+    data = await request.json()
+    recipient_id = data.get('recipient_id')  # User ID or guild ID
+
+    custom_field = {
+        'key': 'recipient_id',
+        'label': {
+            'custom': 'User ID of Recipient (if this is a gift)',
+            'type': 'custom',
+        },
+        'type': 'text',
+        'optional': True,
+        'text': {
+            'minimum_length': 17,
+            'maximum_length': 22,
+        },
+    }
+    if recipient_id and 17 <= len(recipient_id) <= 22:
+        try:
+            int(recipient_id)
+        except ValueError:
+            raise web.HTTPBadRequest(text='Invalid recipient ID format')
+        custom_field['text']['default_value'] = recipient_id
+
+    product = data.get('product')
+    if product not in ('coined_silver', 'coined_gold', 'coined_premium'):
+        raise web.HTTPBadRequest(text='Invalid product specified')
+
+    if product == 'coined_premium':
+        custom_field['label']['custom'] = 'Server ID to apply Coined Premium to'
+
+    sku = getattr(StripeSKUs, product)
+    stripe: StripeClient = request.app['stripe']
+    kwargs = dict(
+        line_items=[{'price': sku, 'quantity': 1}],
+        mode='subscription',
+        success_url=f'{website}/checkout-success',
+        cancel_url=f'{website}/store',
+        custom_fields=[custom_field],
+        allow_promotion_codes=True,
+    )
+    if email := data.get('email'):
+        kwargs['customer_email'] = email
+    if coupon := data.get('coupon'):
+        kwargs['discounts'] = [{'coupon': coupon}]
+
+    session = await stripe.checkout.sessions.create_async()
+    raise web.HTTPFound(session.url)
+
+
 async def create_app() -> web.Application:
     app = web.Application()
     app.add_routes(routes)
@@ -208,8 +262,8 @@ async def create_app() -> web.Application:
 
     app['session'] = ClientSession()
     app.on_cleanup.append(lambda a: a['session'].close())
+    app['stripe'] = StripeClient(stripe_api_key, http_client=StripeAiohttp())
     return app
-
 
 
 if __name__ == '__main__':
