@@ -15,7 +15,6 @@ from config import dbl_secret, ipc_secret, OAuth as OAuthConfig, website
 routes = web.RouteTableDef()
 ipc = Client(secret_key=ipc_secret)
 limiter = Limiter(keyfunc=default_keyfunc)
-session = ClientSession()
 
 
 @routes.get('/')
@@ -72,7 +71,7 @@ async def user_data(request: web.Request) -> web.Response:
     return web.json_response(response.response)
 
 
-async def oauth_request(endpoint: DiscordRoute, **kwargs) -> dict:
+async def oauth_request(session: ClientSession, endpoint: DiscordRoute, **kwargs) -> dict:
     headers = {
         'Content-Type': 'application/x-www-form-urlencoded'
     }
@@ -93,7 +92,7 @@ class DiscordAuthorization(TypedDict):
     user: DiscordUser
 
 
-async def fetch_oauth_authorization(*, access_token: str) -> DiscordAuthorization:
+async def fetch_oauth_authorization(session: ClientSession, *, access_token: str) -> DiscordAuthorization:
     headers = {
         'Authorization': f'Bearer {access_token}',
     }
@@ -111,13 +110,14 @@ async def oauth_exchange_code(request: web.Request) -> web.Response:
         raise web.HTTPBadRequest(text='Must have `code` in JSON body')
 
     response = await oauth_request(
+        session := request.app['session'],
         DiscordRoute('POST', '/oauth2/token'),
         grant_type='authorization_code', code=code, redirect_uri=website
     )
     if 'access_token' not in response:
         raise web.HTTPServerError(text='Response did not contain access_token')
 
-    authorization = await fetch_oauth_authorization(access_token=response['access_token'])
+    authorization = await fetch_oauth_authorization(session, access_token=response['access_token'])
     if not {'identify', 'guilds', 'email'}.issubset(set(authorization['scopes'])):
         raise web.HTTPForbidden(text='Insufficient scopes granted by user')
 
@@ -150,6 +150,7 @@ async def oauth_refresh_token(request: web.Request) -> web.Response:
         raise web.HTTPBadRequest(text='Must have `refresh_token` in JSON body')
 
     response = await oauth_request(
+        request.app['session'],
         DiscordRoute('POST', '/oauth2/token'),
         grant_type='refresh_token', refresh_token=refresh_token,
     )
@@ -172,6 +173,7 @@ async def oauth_revoke_token(request: web.Request) -> web.Response:
         raise web.HTTPBadRequest(text='Must have `token` in query parameters')
 
     await oauth_request(
+        request.app['session'],
         DiscordRoute('POST', '/oauth2/token/revoke'),
         token=token
     )
@@ -185,11 +187,12 @@ async def user_info(request: web.Request) -> web.Response:
     if not token:
         raise web.HTTPUnauthorized(text='Authorization header is required')
 
-    authorization = await fetch_oauth_authorization(access_token=token)
+    session = request.app['session']
+    authorization = await fetch_oauth_authorization(session, access_token=token)
     return web.json_response(authorization['user'])
 
 
-if __name__ == '__main__':
+async def main():
     app = web.Application()
     app.add_routes(routes)
 
@@ -203,4 +206,11 @@ if __name__ == '__main__':
     for route in list(app.router.routes()):
         cors.add(route)
 
-    web.run_app(app, port=8090)
+    async with ClientSession() as session:
+        app['session'] = session
+        web.run_app(app, port=8090)
+
+
+if __name__ == '__main__':
+    import asyncio
+    asyncio.run(main())
