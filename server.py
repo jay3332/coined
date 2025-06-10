@@ -197,7 +197,7 @@ async def user_info(request: web.Request) -> web.Response:
 @routes.post('/checkout/subscription')
 @limiter.limit('3/15second')
 async def checkout_subscription(request: web.Request):
-    data = await request.json()
+    data = request.query
     recipient_id = data.get('recipient_id')  # User ID or guild ID
 
     custom_field = {
