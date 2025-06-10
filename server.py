@@ -79,6 +79,19 @@ async def user_data(request: web.Request) -> web.Response:
     return web.json_response(response.response)
 
 
+async def authenticated_discord_request(session: ClientSession, endpoint: DiscordRoute, **kwargs) -> dict:
+    headers = {
+        'Content-Type': 'application/json',
+    }
+    token = kwargs.pop('token', None)
+    if token:
+        headers['Authorization'] = f'Bearer {token}'
+
+    async with session.request(endpoint.method, endpoint.url, headers=headers, **kwargs) as response:
+        response.raise_for_status()
+        return await response.json()
+
+
 async def oauth_request(session: ClientSession, endpoint: DiscordRoute, **kwargs) -> dict:
     headers = {
         'Content-Type': 'application/x-www-form-urlencoded'
@@ -190,8 +203,8 @@ async def user_info(request: web.Request) -> web.Response:
         raise web.HTTPUnauthorized(text='Authorization header is required')
 
     session = request.app['session']
-    authorization = await fetch_oauth_authorization(session, access_token=token)
-    return web.json_response(authorization['user'])
+    response = await authenticated_discord_request(session, DiscordRoute('GET', '/users/@me'), token=token)
+    return web.json_response(response)
 
 
 @routes.post('/checkout/subscription')
