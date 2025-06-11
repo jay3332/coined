@@ -863,7 +863,7 @@ class Casino(Cog):
 
         embed = discord.Embed(color=Colors.warning, timestamp=ctx.now)
         embed.set_author(name=f'{ctx.author.display_name}\'s Slot Machine', icon_url=ctx.author.display_avatar)
-        embed.description = f'**\xbb** {" ".join(random.sample(SLOTS_SPINNING_EMOJIS, k=3))} **\xab**'
+        embed.description = f'# **\xbb** {" ".join(random.sample(SLOTS_SPINNING_EMOJIS, k=3))} **\xab**'
         yield embed, REPLY
 
         slots = [first, second, third] = random.choices(list(SlotsCell), k=3)
@@ -885,7 +885,7 @@ class Casino(Cog):
             field = 'Loser!'
             multiplier = 0
 
-        embed.description = f'**\xbb** {" ".join(s.emoji for s in slots)} **\xab**'
+        embed.description = f'# **\xbb** {" ".join(s.emoji for s in slots)} **\xab**'
         embed.colour = Colors.success if multiplier else Colors.error
 
         profit = 0
