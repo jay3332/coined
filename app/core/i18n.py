@@ -7,6 +7,8 @@ from typing import ClassVar, Final, TypeAlias, TYPE_CHECKING
 from discord import Locale, app_commands
 from discord.app_commands import TranslationContextLocation, TranslationContextTypes, locale_str
 
+from config import beta
+
 if TYPE_CHECKING:
     from app.core import Bot
 
@@ -27,6 +29,9 @@ class Translator(app_commands.Translator):
 
     def update_base_translations(self) -> None:
         """Ensures the base locale file exists, then writes updated command strings to the base file."""
+        if not beta:
+            return  # this is to prevent git conflicts
+
         os.makedirs(self.BASE_DIR, exist_ok=True)
         base_locale_path = os.path.join(self.BASE_DIR, f'{self.BASE_LOCALE}.json')
 
