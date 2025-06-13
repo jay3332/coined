@@ -258,6 +258,7 @@ class WheelActionRow(ui.ActionRow['WheelView']):
                 ephemeral=True,
             )
 
+        await self.view.record.add(wallet=-price)
         await self._spin(interaction, lambda record: record.add(wheel_spins_this_cycle=1))
         if price:
             await interaction.followup.send(

@@ -680,17 +680,21 @@ class Poker(discord.ui.View):
 
         await record.add(wallet=-self.buy_in)
         self.queue[interaction.user] = interaction
+        message = (
+            f'You paid the buy-in of {Emojis.coin}**{self.buy_in:,}** and joined the game.\n'
+            f'{Emojis.Expansion.standalone} You now have {Emojis.coin} **{record.wallet:,}**'
+        )
         if not self.players:
             await interaction.response.edit_message(embed=self.pregame_embed)
+            await interaction.followup.send(message, emphemeral=True)
         else:
-            await interaction.response.send_message(
-                'You have joined the game. You will play next round',
-                ephemeral=True
-            )
+            await interaction.response.send_message(f'{message}\n-# You will play next round.', ephemeral=True)
 
-    async def cash_out(self, state: PokerState) -> discord.Embed:
+    async def cash_out(self, state: PokerState, *, auto_join: bool = False) -> discord.Embed:
         record = self.ctx.db.get_user_record(state.user.id, fetch=False)
-        await record.add(wallet=state.remaining)
+        net_remaining = state.remaining - self.buy_in if auto_join else state.remaining
+        await record.add(wallet=net_remaining)
+
         profit = state.remaining - state.bet
         await _handle_quests(self.ctx, record, bet=state.bet, profit=profit)
 
@@ -699,10 +703,14 @@ class Poker(discord.ui.View):
         )
         embed.set_author(name=f'{state.user.display_name}: Cash out', icon_url=state.user.avatar)
         exp = Emojis.Expansion.standalone if self.coin == Emojis.coin else '\u2937'
+        extra = (
+            f'-# You also repaid the buy-in of {self.coin} **{self.buy_in:,}**\n'
+            f'-# Leave the game to receive back the buy-in.\n'
+        ) if auto_join else ''
         embed.add_field(
             name=f'Cashed out {self.coin} **{state.remaining:,}**',
             value=(
-                f'You {"profited" if profit > 0 else "lost"} {self.coin} **{abs(profit):,}**.\n'
+                f'You {"profited" if profit > 0 else "lost"} {self.coin} **{abs(profit):,}**.\n{extra}'
                 f'{exp} You now have {self.coin} **{record.wallet:,}**'
             ) if profit else 'You broke even.'
         )
@@ -716,7 +724,7 @@ class Poker(discord.ui.View):
         # cash out to remaining player
         for player in self.players:
             if player.can_play:
-                embed = await self.cash_out(player)
+                embed = await self.cash_out(player, auto_join=True)
                 embed.set_footer(text='Automatically cashed out because all players left')
                 if itx := player.interaction:
                     if player.message:
@@ -748,6 +756,10 @@ class Poker(discord.ui.View):
             # Return buy-in
             await self.ctx.db.get_user_record(interaction.user.id, fetch=False).add(wallet=self.buy_in)
             await interaction.response.edit_message(embed=self.pregame_embed)
+            await interaction.followup.send(
+                f'You left the game! You were refunded the buy-in of {Emojis.coin} **{self.buy_in}**.',
+                ephemeral=True,
+            )
 
         elif state := self.get_state(interaction.user):
             state.fold()
