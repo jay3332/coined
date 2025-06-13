@@ -22,7 +22,7 @@ if TYPE_CHECKING:
     from typing import ClassVar
 
     from app.core.bot import Bot
-    from app.database import Database, UserRecord
+    from app.database import Database, GuildRecord, UserRecord
     from app.util.pagination import Paginator
     from app.util.types import AsyncCallable, TypedInteraction
 
@@ -166,6 +166,12 @@ class Context(TypedContext):
     async def fetch_author_record(self) -> UserRecord:
         """Fetches the author's record from the database."""
         return await self.db.get_user_record(self.author.id)
+
+    async def fetch_guild_record(self) -> GuildRecord:
+        if not self.guild:
+            raise commands.NoPrivateMessage('This command cannot be used in DMs.')
+
+        return await self.db.get_guild_record(self.guild.id)
 
     async def add_random_exp(self, minimum: int, maximum: int, **kwargs) -> int:
         """Adds random EXP to the author."""

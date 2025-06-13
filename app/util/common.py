@@ -47,7 +47,7 @@ __all__ = (
     'converter',
 )
 
-EMOJI_REGEX: re.Pattern[str] = re.compile(r'<(a)?:([a-zA-Z0-9_]{2,32}):([0-9]{17,25})>')
+EMOJI_REGEX: re.Pattern[str] = re.compile(r'<(a)?:([a-zA-Z0-9_]{1,32}):([0-9]{17,25})>')
 PLURALIZE_REGEX: re.Pattern[str] = re.compile(r'(?P<quantity>-?[0-9.,]+) (?P<thing>[a-zA-Z]+)\((?P<plural>i?e?s)\)')
 
 
@@ -207,13 +207,13 @@ class ExponentialCurve(BaseCurve):
         return f"ExponentialCurve(initial={self.initial}, ratio={self.ratio})"
 
 
-def image_url_from_emoji(emoji: str | discord.PartialEmoji) -> str:
+def image_url_from_emoji(emoji: str | discord.PartialEmoji, *, static: bool = False) -> str:
     if isinstance(emoji, discord.PartialEmoji):
         return emoji.url
 
     if match := EMOJI_REGEX.match(emoji):
         animated, _, id = match.groups()
-        extension = 'gif' if animated else 'png'
+        extension = 'gif' if animated and not static else 'png'
         return f'https://cdn.discordapp.com/emojis/{id}.{extension}?v=1'
     else:
         code = '-'.join(format(ord(c), 'x') for c in emoji if c != '\ufe0f')

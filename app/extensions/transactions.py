@@ -898,7 +898,7 @@ class Transactions(Cog):
         quantity: str = '1',
     ) -> None:
         transformed = await transform_item_and_quantity(ctx, BUY, item, quantity)
-        await ctx.invoke(ctx.command, item_and_quantity=transformed)
+        await ctx.invoke(ctx.command, item_and_quantity=transformed)  # type: ignore
 
     @command(alias='s', hybrid=True, with_app_command=False)
     @simple_cooldown(3, 8)

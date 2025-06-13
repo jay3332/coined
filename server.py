@@ -75,7 +75,8 @@ async def global_(_request: web.Request) -> web.Response:
 @limiter.limit('2/8second')
 async def user_data(request: web.Request) -> web.Response:
     user_id = int(request.match_info['user_id'])
-    response = await ipc.request('user_data', user_id=user_id)
+    token = request.headers.get('Authorization', '').removeprefix('Bearer ')
+    response = await ipc.request('user_data', user_id=user_id, token=token)
     return web.json_response(response.response)
 
 
@@ -128,7 +129,7 @@ async def update_access_token(session: ClientSession, *, data: dict) -> web.Resp
     if not {'identify', 'guilds', 'email'}.issubset(set(authorization['scopes'])):
         raise web.HTTPForbidden(text='Insufficient scopes granted by user')
 
-    await ipc.request(
+    response = await ipc.request(
         'oauth_token_update',
         user_id=authorization['user']['id'],
         email=authorization['user'].get('email'),
@@ -136,6 +137,7 @@ async def update_access_token(session: ClientSession, *, data: dict) -> web.Resp
     )
     return web.json_response({
         'user': authorization['user'],
+        'api_token': response and response.response['token'],
         'access_token': access_token,
         'refresh_token': data.get('refresh_token'),
         'expires_in': data.get('expires_in', 0),

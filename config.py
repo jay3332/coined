@@ -76,6 +76,22 @@ class StripeSKUs:
     coined_premium: str = 'price_1RXx07GPHyZ4PQsxWCRoNGye'
 
 
+class DiscordSKUs:
+    coined_silver: int = 1381750673452044401
+    coined_gold: int = 1381754776512893028
+    coined_premium: int = 1381757101260406908
+
+    @classmethod
+    def to_product_key(cls, sku_id: int) -> str:
+        if sku_id == cls.coined_silver:
+            return 'coined_silver'
+        elif sku_id == cls.coined_gold:
+            return 'coined_gold'
+        elif sku_id == cls.coined_premium:
+            return 'coined_premium'
+        raise ValueError(f'Unknown SKU ID: {sku_id}')
+
+
 class Colors:
     primary: int = _RandomColor()  # 0x6199f2
     secondary: int = 0x6199f2
@@ -99,6 +115,7 @@ class Emojis:
     space = '<:s:1379658651458994310>'
     arrow = '<:a:1379658452774949008>'
     refresh = '<:r:1374213217806712882>'
+    topgg_upvote = '<:upvote:1379979028118638662>'
 
     orb = '<:o:1379658492519907450>'
     quest_pass = '\U0001f396\ufe0f'  # TODO
@@ -110,6 +127,11 @@ class Emojis:
     enabled = '<:e:1379658481329508503>'
     disabled = '<:d:1379658477986775110>'
     neutral = '<:n:1379658491207352371>'
+
+    class Subscriptions:
+        coined_silver: str = '<:coined_silver:1382090510503641219>'
+        coined_gold: str = '<:coined_gold:1382090529344458955>'
+        coined_premium: str = '<:coined_premium:1382090497404965065>'
 
     class Arrows:
         left: str = ''

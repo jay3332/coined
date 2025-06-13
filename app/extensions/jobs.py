@@ -151,7 +151,8 @@ class JobsCog(Cog, name='Jobs'):
 
         breakdown = []
         multiplier_mention = ctx.bot.tree.get_app_command('multiplier').mention
-        disclaimer = f' with +{record.coin_multiplier - 1:.1%} {multiplier_mention}' if record.coin_multiplier > 1 else ''
+        coin_multiplier = record.coin_multiplier_in_ctx(ctx)
+        disclaimer = f' with +{coin_multiplier - 1:.1%} {multiplier_mention}' if coin_multiplier > 1 else ''
 
         extra = (
             f'\n{Emojis.Expansion.standalone} *This is a harder task!* '
@@ -164,7 +165,7 @@ class JobsCog(Cog, name='Jobs'):
             breakdown.append(f'+{minigame.multiplier - 1:.1%} Minigame Multiplier: {Emojis.coin} **+{difference:,.0f}**')
 
         embed.description = (
-            f'Expected salary{disclaimer}: {Emojis.coin} **{salary * record.coin_multiplier:,.0f}**{extra}\n'
+            f'Expected salary{disclaimer}: {Emojis.coin} **{salary * coin_multiplier:,.0f}**{extra}\n'
             'To work, complete the minigame below'
         )
 
@@ -207,10 +208,10 @@ class JobsCog(Cog, name='Jobs'):
                     salary += extra
                     breakdown.append(f'{Pets.duck.display}: {Emojis.coin} **+{extra:,}**')
 
-            profit = await record.add_coins(salary, connection=conn)
+            profit = await record.add_coins(salary, ctx=ctx, connection=conn)
             extra = profit - salary
             if extra:
-                multiplier = record.coin_multiplier - 1
+                multiplier = coin_multiplier - 1
                 breakdown.append(
                     f'+{multiplier:.1%} Coin Multiplier ({multiplier_mention}): {Emojis.coin} **+{extra:,}**',
                 )

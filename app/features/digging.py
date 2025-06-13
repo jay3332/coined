@@ -133,7 +133,7 @@ class HeaderRow(ui.ActionRow['DiggingView']):
     @ui.button(style=ButtonStyle.secondary, emoji=Emojis.coin)
     async def show_collected_coins(self, itx: TypedInteraction, _) -> None:
         base = self.parent.session.collected_coins
-        multiplier = self.parent.session.record.coin_multiplier
+        multiplier = self.parent.session.record.coin_multiplier_in_ctx(self.view.ctx)
         multipliers_mention = self.parent.ctx.bot.tree.get_app_command('multiplier').mention
         extra = '' if multiplier <= 1 else (
             f'\n{Emojis.Expansion.standalone} You will receive {Emojis.coin} **{round(base * multiplier):,}** because '
@@ -379,7 +379,7 @@ class DiggingActionRow(ui.ActionRow['DiggingView']):
                 await quest.add_progress(self.session.max_stamina - self.session.stamina, connection=conn)
 
             self.session.collected_coins = await self.session.record.add_coins(
-                self.session.collected_coins, connection=conn,
+                self.session.collected_coins, ctx=self.session.ctx, connection=conn,
             )
             await self.session.inventory.add_bulk(**kwargs, connection=conn)
 

@@ -4,7 +4,7 @@ import inspect
 import random
 from datetime import timedelta
 from functools import wraps
-from typing import Any, Callable, Final, Iterable, Literal, TYPE_CHECKING, overload
+from typing import Any, Callable, Final, Iterable, Literal, NamedTuple, TYPE_CHECKING, overload
 
 import discord
 from discord.app_commands import Command as AppCommand
@@ -18,6 +18,7 @@ from config import Emojis
 
 if TYPE_CHECKING:
     from app.core.models import Context, Cog
+    from app.database import GuildPremiumType, UserPremiumType
     from app.util.types import TypedInteraction
 
 __all__ = (
@@ -446,16 +447,121 @@ def simple_cooldown(rate: int, per: float, bucket: commands.BucketType = command
     return commands.cooldown(rate, per, bucket)
 
 
+class _DummyCooldown(NamedTuple):
+    rate: int
+    per: float
+
+
+def user_premium_dynamic_cooldown(
+    rate: int,
+    per: float,
+    *,
+    silver: tuple[int, float] = MISSING,
+    gold: tuple[int, float] = MISSING,
+    bucket: commands.BucketType = commands.BucketType.user,
+) -> Callable[[callable], callable]:
+    from app.database import UserPremiumType
+
+    if silver is MISSING:
+        silver = (rate, per)
+    if gold is MISSING:
+        gold = silver
+
+    def cooldown(ctx: Context) -> commands.Cooldown:
+        record = ctx.db.get_user_record(ctx.author.id, fetch=False)
+        if record.premium_type >= UserPremiumType.gold:
+            return commands.Cooldown(*gold)
+        elif record.premium_type >= UserPremiumType.silver:
+            return commands.Cooldown(*silver)
+        else:
+            return commands.Cooldown(rate, per)
+
+    deco = commands.dynamic_cooldown(cooldown, type=bucket)
+
+    @wraps(deco)
+    def wrapper(func: callable) -> callable:
+        func.__user_premium_dynamic_cooldown__ = (
+            _DummyCooldown(rate, per), _DummyCooldown(*silver), _DummyCooldown(*gold), bucket
+        )
+        return deco(func)
+
+    return wrapper
+
+
+class UserPremiumOnlyCommand(commands.CommandError):
+    def __init__(self, min_premium_type: UserPremiumType) -> None:
+        super().__init__(
+            f'You need to subscribe to {min_premium_type.emoji} **{min_premium_type.name}** to use this command.'
+        )
+        self.min_premium_type = min_premium_type
+
+
+class GuildPremiumOnlyCommand(commands.CommandError):
+    def __init__(self, min_premium_type: GuildPremiumType) -> None:
+        super().__init__(
+            f'This command can only be used in servers with {min_premium_type.emoji} **{min_premium_type.name}**.'
+        )
+        self.min_premium_type = min_premium_type
+
+
+def user_premium(min_premium_type: UserPremiumType = MISSING) -> Callable[[callable], callable]:
+    from app.database import UserPremiumType
+    if min_premium_type is MISSING:
+        min_premium_type = UserPremiumType.silver
+
+    async def predicate(ctx: Context) -> bool:
+        record = await ctx.fetch_author_record()
+        if record.premium_type >= min_premium_type:
+            return True
+
+        raise UserPremiumOnlyCommand(min_premium_type)
+
+    deco = commands.check(predicate)
+
+    @wraps(deco)
+    def wrapper(func: callable) -> callable:
+        func.__user_premium_required__ = min_premium_type
+        return deco(func)
+
+    return wrapper
+
+
+def guild_premium(min_premium_type: GuildPremiumType = MISSING) -> Callable[[callable], callable]:
+    from app.database import GuildPremiumType
+    if min_premium_type is MISSING:
+        min_premium_type = GuildPremiumType.premium
+
+    async def predicate(ctx: Context) -> bool:
+        if ctx.guild is None or ctx.interaction and ctx.interaction.is_user_integration():
+            raise commands.NoPrivateMessage()
+
+        record = await ctx.fetch_guild_record()
+        if record.premium_type >= min_premium_type:
+            return True
+
+        raise GuildPremiumOnlyCommand(min_premium_type)
+
+    deco = commands.check(predicate)
+
+    @wraps(deco)
+    def wrapper(func: callable) -> callable:
+        func.__guild_premium_required__ = min_premium_type
+        return deco(func)
+
+    return wrapper
+
+
 def user_max_concurrency(count: int, *, wait: bool = False) -> Callable[[callable], callable]:
     return commands.max_concurrency(count, commands.BucketType.user, wait=wait)
 
 
 def cooldown_message(message: str) -> Callable[[callable | commands.Command], callable]:
     def decorator(func: callable | commands.Command) -> callable:
+        target = func
         if isinstance(func, commands.Command):
-            func = func.callback
+            target = func.callback
 
-        func.__cooldown_message__ = message
+        target.__cooldown_message__ = message
         return func
 
     return decorator

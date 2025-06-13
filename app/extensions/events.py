@@ -27,7 +27,7 @@ from app.util.ansi import AnsiColor, AnsiStringBuilder
 from app.util.common import cutoff, humanize_duration, pluralize, walk_collection
 from app.util.converters import BadItemArgument, IncompatibleItemType
 from app.util.views import StaticCommandButton
-from config import Colors, beta, dbl_token, errors_channel, guilds_channel, support_server, votes_channel
+from config import Colors, DiscordSKUs, beta, dbl_token, errors_channel, guilds_channel, support_server, votes_channel
 
 log = getLogger(__name__)
 EVERY_HALF_HOUR: list[datetime.time] = [datetime.time(hour, minute) for hour in range(0, 24) for minute in (0, 30)]
@@ -339,6 +339,23 @@ class EventsCog(Cog, name='Events'):
         )
         await channel.send(embed=embed)
 
+    @Cog.listener()
+    async def on_entitlement_create(self, entitlement: discord.Entitlement) -> None:
+        try:
+            product_key = DiscordSKUs.to_product_key(entitlement.sku_id)
+        except ValueError:
+            log.warning(f'Unknown entitlement SKU ID: {entitlement.sku_id}')
+            return
+
+    @Server.route()
+    async def oauth_token_update(self, data: ClientPayload) -> dict[str, Any]:
+        record = await self.bot.db.get_user_record(data.user_id)
+        token = await record.get_or_generate_token()
+        await record.update(email=data.email)
+        return {
+            'token': token,
+        }
+
     @Server.route()
     async def dbl_vote(self, data: ClientPayload) -> None:
         """Handle a vote from top.gg"""
@@ -452,14 +469,20 @@ class EventsCog(Cog, name='Events'):
         await record.inventory_manager.wait()
         await record.skill_manager.wait()
         await record.pet_manager.wait()
+        await record.quest_manager.wait()
 
-        base = record.data.copy()
+        base = record.sanitized_data
         base['user'] = user._to_minimal_user_json()
         base['inventory'] = {
             item.key: quantity for item, quantity in record.inventory_manager.cached.items() if quantity
         }
-        base['skills'] = [skill._asdict() for skill in record.skill_manager.cached.values()]
         base['pets'] = [transform_pet_record(pet) for pet in record.pet_manager.cached.values()]
+        base['skills'] = [skill._asdict() for skill in record.skill_manager.cached.values()]
+        base['quests'] = [quest.to_dict() for quest in record.quest_manager.cached]
+
+        if data.token == record.token:
+            base['user']['email'] = record.email
+
         return json.loads(json.dumps(base, default=serializer))  # inefficient hack
 
     @Cog.listener()

@@ -28,7 +28,7 @@ from app.core import (
     simple_cooldown,
     user_max_concurrency
 )
-from app.core.helpers import EPHEMERAL, cooldown_message
+from app.core.helpers import EPHEMERAL, cooldown_message, user_premium_dynamic_cooldown
 from app.data.items import EnemyRef, FishingPoleMetadata, Item, ItemRarity, ItemType, Items
 from app.data.pets import Pet, Pets
 from app.data.quests import QUEST_PASS_CURVE, QUEST_PASS_REWARDS, QuestTemplates, reward_for_achieving_tier
@@ -37,6 +37,7 @@ from app.database import NotificationData, QuestManager, QuestRecord, RobFailRea
 from app.extensions.misc import _get_retry_after
 from app.features.battles import PvEBattleView
 from app.features.digging import DiggingView
+from app.features.wheel import WheelView
 from app.util.common import (
     cutoff, expansion_list,
     humanize_list,
@@ -353,7 +354,7 @@ class Profit(Cog):
 
     # noinspection PyTypeChecker
     @command(aliases={"plead"}, hybrid=True)
-    @simple_cooldown(1, 15)
+    @user_premium_dynamic_cooldown(1, 15, silver=(1, 8), gold=(1, 5))
     @user_max_concurrency(1)
     async def beg(self, ctx: Context):
         """Beg for coins.
@@ -402,15 +403,16 @@ class Profit(Cog):
             multiplier += (extra := 0.02 + cow.level * 0.005)
             multiplier_text.append(f'{cow.pet.display}: {Emojis.coin} **+{extra * base:,.0f}**')
 
-        if record.coin_multiplier > 1:
-            extra = record.coin_multiplier - 1
+        coin_multiplier = record.coin_multiplier_in_ctx(ctx)
+        if coin_multiplier > 1:
+            extra = coin_multiplier - 1
             multiplier_mention = ctx.bot.tree.get_app_command('multiplier').mention
             multiplier_text.append(
                 f'+{extra:.1%} Coin Multiplier ({multiplier_mention}): {Emojis.coin} **+{extra * base:,.0f}**',
             )
 
         async with ctx.db.acquire() as conn:
-            profit = await record.add_coins(base * multiplier, connection=conn)
+            profit = await record.add_coins(base * multiplier, ctx=ctx, connection=conn)
             message = f'{Emojis.coin} **{profit:,}**'
 
             if random.random() < item_chance:
@@ -490,7 +492,7 @@ class Profit(Cog):
 
             await asyncio.sleep(2)
 
-        profit = await record.add_coins(round(amount * (1 + multiplier)))
+        profit = await record.add_coins(round(amount * (1 + multiplier)), ctx=ctx)
 
         embed = make_embed(Colors.success)
         embed.description = 'Success! Your investment succeeded.'
@@ -723,7 +725,7 @@ class Profit(Cog):
 
         gain *= gain_multiplier
         async with ctx.db.acquire() as conn:
-            profit = await record.add_coins(gain, connection=conn)
+            profit = await record.add_coins(gain, ctx=ctx, connection=conn)
             message = f'{Emojis.coin} **{profit:,}**'
 
             if item := random.choices(list(weights), weights=list(weights.values()))[0]:
@@ -908,7 +910,7 @@ class Profit(Cog):
         gain *= gain_multiplier
 
         async with ctx.db.acquire() as conn:
-            profit = await record.add_coins(gain, connection=conn)
+            profit = await record.add_coins(gain, ctx=ctx, connection=conn)
             message = [f'{Emojis.coin} **{profit:,}**']
 
             if random.random() < choice.item_chance:
@@ -1113,7 +1115,7 @@ class Profit(Cog):
             await record.add_random_exp(10, 15, chance=0.65, ctx=ctx, connection=conn)
 
             if view.choice == question.correct_answer:
-                profit = await record.add_coins(prize, connection=conn)
+                profit = await record.add_coins(prize, ctx=ctx, connection=conn)
                 await record.add(iq=1, connection=conn)
 
                 yield (
@@ -1196,7 +1198,7 @@ class Profit(Cog):
 
         streak_benefit = record.daily_streak * 250
         profit = 5000 + streak_benefit
-        profit = await record.add_coins(profit)
+        profit = await record.add_coins(profit, ctx=ctx)
 
         embed = discord.Embed(color=Colors.primary, timestamp=ctx.now)
         embed.set_author(name=f'{ctx.author.name}: Claim Daily', icon_url=ctx.author.display_avatar)
@@ -1227,7 +1229,7 @@ class Profit(Cog):
 
         streak_benefit = record.weekly_streak * 2000
         profit = 20000 + streak_benefit
-        profit = await record.add_coins(profit)
+        profit = await record.add_coins(profit, ctx=ctx)
 
         embed = discord.Embed(color=Colors.primary, timestamp=ctx.now)
         embed.set_author(name=f'{ctx.author.name}: Claim Weekly', icon_url=ctx.author.display_avatar)
@@ -1292,6 +1294,21 @@ class Profit(Cog):
             f'{Pets.fox.emoji} Your **fox** produces {item.get_sentence_chunk()} and stores it in your inventory.',
             REPLY,
         )
+
+    @command(
+        'spin-the-wheel',
+        aliases={'spinthewheel', 'stw', 'wheel', 'wh', 'whl', 'spinwheel', 'spin-wheel'},
+        hybrid=True,
+    )
+    @simple_cooldown(1, 30)
+    @user_max_concurrency(1)
+    async def spin_the_wheel(self, ctx: Context) -> CommandResponse:
+        """Spin the wheel for a chance at winning coins, items, and more!"""
+        record = await ctx.fetch_author_record()
+        view = WheelView(ctx, record)
+        await view.prepare()
+        yield view, await view.wheel.render_preview(), REPLY, NO_EXTRA
+        await view.wait()
 
     def store_rob(self, ctx: Context, victim: AnyUser, amount: int) -> RobData:
         self._recent_robs[victim.id] = entry = RobData(
@@ -2131,9 +2148,10 @@ class DivingView(UserView):
 
         earnings = []
         if self._profit:
+            coin_multiplier = self.record.coin_multiplier_in_ctx(self.ctx)
             with_multi = (
-                f' (applied {self.record.coin_multiplier - 1:.1%} coin multiplier)'
-                if self._multipliers_applied and self.record.coin_multiplier > 1 else ''
+                f' (applied {coin_multiplier - 1:.1%} coin multiplier)'
+                if self._multipliers_applied and coin_multiplier > 1 else ''
             )
             earnings.append(f'- {Emojis.coin} **{self._profit:,}**{with_multi}')
         for item, quantity in self._items.items():
@@ -2233,7 +2251,7 @@ class DivingView(UserView):
 
     @discord.ui.button(label='Surface', style=discord.ButtonStyle.success, emoji='\u23eb')
     async def surface(self, interaction: TypedInteraction, button: discord.ui.Button):
-        self._profit = await self.record.add_coins(self._profit)
+        self._profit = await self.record.add_coins(self._profit, ctx=self.ctx)
         self._multipliers_applied = True
 
         async with self.record.db.acquire() as conn:

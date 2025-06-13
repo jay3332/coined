@@ -10,7 +10,6 @@ import discord
 from discord import app_commands
 from discord.app_commands import Choice
 from discord.ext.commands import BadArgument
-from discord.utils import format_dt
 from PIL import Image
 
 from app import Bot
@@ -23,7 +22,7 @@ from app.database import (
     NotificationData,
     NotificationsManager,
     UserHistoryEntry,
-    UserRecord,
+    UserRecord, aggregate_multipliers,
 )
 from app.extensions.transactions import query_item_type
 from app.util.common import converter, cutoff, humanize_duration, image_url_from_emoji, progress_bar
@@ -32,7 +31,7 @@ from app.util.graphs import send_graph_to
 from app.util.pagination import FieldBasedFormatter, Formatter, LineBasedFormatter, Paginator
 from app.util.structures import DottedDict
 from app.util.views import ModalButton, StaticCommandButton, invoke_command
-from config import Colors, Emojis, multiplier_guilds
+from config import Colors, Emojis
 
 if TYPE_CHECKING:
     from app.extensions.transactions import Transactions
@@ -257,7 +256,7 @@ class Stats(Cog):
     @balance.define_app_command()
     @app_commands.describe(user='The user to view the balance of.')
     async def balance_app_command(self, ctx: HybridContext, user: discord.Member = None) -> None:
-        await ctx.invoke(ctx.command, user=user)
+        await ctx.invoke(ctx.command, user=user)  # type: ignore
 
     async def _balance_context_menu_callback(self, interaction: TypedInteraction, user: discord.Member) -> None:
         await invoke_command(self.balance, interaction, args=(), kwargs={'user': user})
@@ -302,19 +301,12 @@ class Stats(Cog):
     @level.define_app_command()
     @app_commands.describe(user='The user to view the level of.')
     async def level_app_command(self, ctx: HybridContext, user: discord.Member = None) -> None:
-        await ctx.invoke(ctx.command, user=user)
+        await ctx.invoke(ctx.command, user=user)  # type: ignore
 
     @staticmethod
     def _deconstruct(multipliers: Iterable[Multiplier]) -> tuple[str, float]:
-        try:
-            details, multipliers = zip(*(
-                (multiplier.display, multiplier.multiplier)
-                for multiplier in multipliers if multiplier.multiplier
-            ))
-        except ValueError:
-            details, multipliers = (), ()
-
-        return '\n'.join(details), sum(multipliers)
+        multipliers = list(multipliers)
+        return '\n'.join(m.display for m in multipliers if m.multiplier), aggregate_multipliers(multipliers)
 
     @command(aliases={'mul', 'ml', 'mti', 'multi', 'multipliers'}, hybrid=True)
     @simple_cooldown(2, 5)
@@ -329,7 +321,7 @@ class Stats(Cog):
         # XP Multi
         details, total = self._deconstruct(data.walk_exp_multipliers(ctx))
         embed.add_field(
-            name=f"Total XP Multiplier: **{total:.1%}**",
+            name=f"Total XP Multiplier: **{total - 1:.1%}**",
             value=details or 'No XP multipliers applied.',
             inline=False,
         )
@@ -337,7 +329,7 @@ class Stats(Cog):
         # Coin Multi
         details, total = self._deconstruct(data.walk_coin_multipliers(ctx))
         embed.add_field(
-            name=f"Total Coin Multiplier: **{total:.1%}**",
+            name=f"Total Coin Multiplier: **{total - 1:.1%}**",
             value=details or 'No coin multipliers applied.',
             inline=False
         )
@@ -345,7 +337,7 @@ class Stats(Cog):
         # Bank space growth multi
         details, total = self._deconstruct(data.walk_bank_space_growth_multipliers())
         embed.add_field(
-            name=f"Total Bank Space Growth Multiplier: **{total:.1%}**",
+            name=f"Total Bank Space Growth Multiplier: **{total - 1:.1%}**",
             value=details or 'No bank space multipliers applied.',
             inline=False
         )
@@ -479,7 +471,7 @@ class Stats(Cog):
     @inventory.define_app_command()
     @app_commands.describe(user='The user to view the inventory of.')
     async def inventory_app_command(self, ctx: HybridContext, user: discord.Member = None):
-        await ctx.invoke(ctx.command, user=user)
+        await ctx.invoke(ctx.command, user=user)  # type: ignore
 
     @command(aliases={"itembook", "uniqueitems", "discovered", "ib"}, hybrid=True, with_app_command=False)
     @simple_cooldown(2, 6)
@@ -527,7 +519,7 @@ class Stats(Cog):
         rarity: Literal['Common', 'Uncommon', 'Rare', 'Epic', 'Legendary', 'Mythic'] = None,
         category: str = None,
     ):
-        await ctx.invoke(ctx.command, rarity=(rarity or 'all').lower(), category=category and query_item_type(category))
+        await ctx.invoke(ctx.command, rarity=(rarity or 'all').lower(), category=category and query_item_type(category))  # type: ignore
 
     @group(aliases={"notifs", "notification", "notif", "nt"}, hybrid=True, fallback='list')
     @simple_cooldown(1, 6)

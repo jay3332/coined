@@ -244,6 +244,12 @@ class HelpCommand(commands.HelpCommand):
 
         await paginator.start(interaction=self.context.interaction if self.context.is_interaction else None)
 
+    @staticmethod
+    def _humanize_cooldown(cooldown: commands.Cooldown) -> str:
+        if cooldown.rate == 1:
+            return humanize_duration(cooldown.per)
+        return pluralize(f'{cooldown.rate} time(s) per {humanize_duration(cooldown.per)}')
+
     def get_base_command_embed(self, command: Command) -> discord.Embed:
         ctx: Context = self.context
 
@@ -267,10 +273,15 @@ class HelpCommand(commands.HelpCommand):
 
         if cooldown := getattr(command.callback, '__database_cooldown__', None):
             humanized = humanize_duration(cooldown)
-
+        elif cooldowns := getattr(command.callback, '__user_premium_dynamic_cooldown__', None):
+            standard, silver, gold, _bucket = cooldowns
+            humanized = (
+                f'Default: {self._humanize_cooldown(standard)}\n'
+                f'Coined Silver: {self._humanize_cooldown(silver)}\n'
+                f'Coined Gold: {self._humanize_cooldown(gold)}'
+            )
         elif cooldown := command._buckets._cooldown:
-            humanized = pluralize(f'{cooldown.rate} time(s) per {humanize_duration(cooldown.per)}')
-
+            humanized = self._humanize_cooldown(cooldown)
         else:
             humanized = None
 

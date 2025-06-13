@@ -194,7 +194,7 @@ class QuestTemplates:
 
     @vote.to_get_title
     def get_vote_title(self, quest: Quest) -> str:
-        emoji = '<:upvote:1379979028118638662>'
+        emoji = Emojis.topgg_upvote
         top_gg = f'[Top.gg](https://top.gg/bot/{quest.record.db.bot.user.id}/vote)'
         if quest.arg == 1:
             return f'{emoji} Vote for Coined on {top_gg}'
@@ -356,7 +356,7 @@ class QuestTemplates:
     @earn_coins.to_generate
     async def generate_earn_coins_quest(self, template: QuestTemplate, slot: QuestSlot, record: UserRecord) -> Quest:
         """Generate a quest that requires earning coins."""
-        multiplier = record.coin_multiplier
+        multiplier = record.global_coin_multiplier
         match slot:
             case QuestSlot.recurring_easy:
                 arg = random.randint(10, 25) * 1000

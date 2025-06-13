@@ -163,7 +163,7 @@ class Events:
         async with ctx.db.acquire() as conn:  # TODO: artifacts
             for user, hp in damage_mapping.items():
                 record = view.records[user]
-                profits[user] = await record.add_coins(hp * 4, connection=conn)
+                profits[user] = await record.add_coins(hp * 4, ctx=ctx, connection=conn)
 
         finishing_view = discord.ui.View(timeout=600)
         finishing_view.add_item(ViewBattleEarningsButton(damage_mapping, profits, view.opponent))

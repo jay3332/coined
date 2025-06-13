@@ -4,6 +4,7 @@ import asyncio
 import datetime
 import json
 import random
+import secrets
 from abc import ABC, abstractmethod
 from collections import defaultdict, deque
 from dataclasses import dataclass
@@ -1262,16 +1263,23 @@ class UserHistoryEntry(NamedTuple):
         return cls(record['wallet'], record['total'])
 
 
+class StackType(IntEnum):
+    additive = 0
+    multiplicative = 1
+
+
 class Multiplier(NamedTuple):
     multiplier: float
     title: str
     description: str | None = None
     expires_at: datetime.datetime | None = None
     is_global: bool = True
+    stack_type: StackType = StackType.additive
 
     @property
     def display(self) -> str:
-        base = f'- {self.title}: +**{self.multiplier:.1%}** {"(global)" if self.is_global else ""}'
+        inner = f'+**{self.multiplier:.1%}**' if self.stack_type is StackType.additive else f'x**{self.multiplier:.1}**'
+        base = f'- {self.title}: {inner} {"(global)" if self.is_global else ""}'
 
         if description := self.description:
             base += f'\n  - *{description}*'
@@ -1280,6 +1288,18 @@ class Multiplier(NamedTuple):
             base += f'\n  - Expires {format_dt(expires_at, "R")}'
 
         return base
+
+
+def aggregate_multipliers(multipliers: Iterable[Multiplier]) -> float:
+    multiplier = 1.0
+
+    for m in multipliers:
+        if m.stack_type is StackType.additive:
+            multiplier += m.multiplier
+        else:
+            multiplier *= m.multiplier
+
+    return multiplier
 
 
 class BaseRecord(ABC):
@@ -1461,6 +1481,18 @@ class QuestRecord:
             completed_at=record['completed_at'],
             expires_at=record['expires_at'],
         )
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            'id': self.id,
+            'key': self.quest.template.key,
+            'slot': self.quest.slot.name,
+            'arg': self.quest.arg,
+            'extra': self.quest.extra,
+            'progress': self.progress,
+            'completed_at': self.completed_at,
+            'expires_at': self.expires_at,
+        }
 
 
 class CompletedQuest(NamedTuple):
@@ -1648,6 +1680,47 @@ class QuestManager:
         await self.refresh_slots()
 
 
+class UserPremiumType(IntEnum):
+    none = 0
+    silver = 1
+    gold = 2
+
+    @property
+    def is_premium(self) -> bool:
+        return self is not self.none
+
+    @property
+    def emoji(self) -> str:
+        match self:
+            case UserPremiumType.silver:
+                return Emojis.Subscriptions.coined_silver
+            case UserPremiumType.gold:
+                return Emojis.Subscriptions.coined_gold
+            case _:
+                return ''
+
+    def __bool__(self) -> bool:
+        return self.is_premium
+
+
+class GuildPremiumType(IntEnum):
+    none = 0
+    premium = 1
+
+    @property
+    def is_premium(self) -> bool:
+        return self is not self.none
+
+    @property
+    def emoji(self) -> str:
+        if not self:
+            return ''
+        return Emojis.Subscriptions.coined_premium
+
+    def __bool__(self) -> bool:
+        return self.is_premium
+
+
 class UserRecord(BaseRecord):
     """Stores data about a user."""
 
@@ -1671,7 +1744,7 @@ class UserRecord(BaseRecord):
         self.__quest_manager: QuestManager | None = None
 
     def __repr__(self) -> str:
-        return f'<UserRecord wallet={self.wallet} bank={self.bank} level_data={self.level_data}>'
+        return f'<UserRecord user_id={self.user_id}>'
 
     async def update_history(self, connection: asyncpg.Connection) -> None:
         if self.history:
@@ -1751,12 +1824,13 @@ class UserRecord(BaseRecord):
         coins: int,
         /,
         *,
+        ctx: Context | None = None,
         multiplier: float | None = None,
         is_profit: bool = True,
         connection: asyncpg.Connection | None = None,
     ) -> int:
         """Adds coins including applying multipliers. Returns the amount of coins added."""
-        multiplier = multiplier or self.coin_multiplier
+        multiplier = multiplier or self.coin_multiplier_in_ctx(ctx)
         coins = round(coins * multiplier) if coins > 0 else coins
         await self.add(wallet=coins, connection=connection)
 
@@ -1855,6 +1929,22 @@ class UserRecord(BaseRecord):
             NotificationData.Death(reason=reason, coins_lost=old, item_lost=item and item.key, quantity_lost=quantity),
             connection=connection,
         )
+
+    async def regenerate_token(self) -> str:
+        token = secrets.token_urlsafe(32)
+        await self.update(token=token)
+        return token
+
+    async def get_or_generate_token(self) -> str:
+        if not self.data.get('token'):
+            return await self.regenerate_token()
+        return self.data['token']
+
+    @property
+    def sanitized_data(self) -> dict[str, Any]:
+        """Returns a sanitized copy of the data"""
+        blacklisted = {'token', 'email'}
+        return {k: v for k, v in self.data.items() if k not in blacklisted}
 
     @property
     def wallet(self) -> int:
@@ -1955,6 +2045,7 @@ class UserRecord(BaseRecord):
             level = armadillo.level
             yield Multiplier(0.02 + level * 0.006, f'{Pets.armadillo.display} (Level {level})')
 
+        subs = Emojis.Subscriptions
         if ctx is not None and ctx.guild is not None:
             if ctx.interaction and not ctx.interaction.is_guild_integration():
                 return
@@ -1965,14 +2056,26 @@ class UserRecord(BaseRecord):
             if ctx.guild.id in multiplier_guilds:
                 yield Multiplier(0.5, ctx.guild.name, is_global=False)
 
+            if self.db.get_guild_record(ctx.guild.id, fetch=False).premium_type is GuildPremiumType.premium:
+                yield Multiplier(
+                    2, f'{subs.coined_premium} Premium Server',
+                    stack_type=StackType.multiplicative, is_global=False,
+                )
+
+        if self.premium_type is UserPremiumType.gold:
+            yield Multiplier(3, f'{subs.coined_gold} Coined Gold', stack_type=StackType.multiplicative)
+        elif self.premium_type is UserPremiumType.silver:
+            yield Multiplier(2, f'{subs.coined_silver} Coined Silver', stack_type=StackType.multiplicative)
+
+
     @property
     def global_exp_multiplier(self) -> float:
         return self.exp_multiplier_in_ctx(None)
 
     def exp_multiplier_in_ctx(self, ctx: Context | None = None) -> float:
-        return 1 + sum(m.multiplier for m in self.walk_exp_multipliers(ctx))
+        return aggregate_multipliers(self.walk_exp_multipliers(ctx))
 
-    def walk_coin_multipliers(self, _ctx: Context | None = None) -> Generator[Multiplier, Any, Any]:
+    def walk_coin_multipliers(self, ctx: Context | None = None) -> Generator[Multiplier, Any, Any]:
         yield Multiplier(self.prestige * 0.25, f'{Emojis.get_prestige_emoji(self.prestige)} Prestige {self.prestige}')
 
         if self.alcohol_expiry is not None:
@@ -2005,9 +2108,28 @@ class UserRecord(BaseRecord):
             level = tiger.level
             yield Multiplier(0.08 + level * 0.015, f'{Pets.tiger.display} (Level {level})')
 
+        subs = Emojis.Subscriptions
+        if ctx is not None and ctx.guild is not None:
+            if ctx.interaction and not ctx.interaction.is_guild_integration():
+                return
+
+            if self.db.get_guild_record(ctx.guild.id, fetch=False).premium_type is GuildPremiumType.premium:
+                yield Multiplier(
+                    1.25, f'{subs.coined_premium} Premium Server',
+                    stack_type=StackType.multiplicative, is_global=False,
+                )
+
+        if self.premium_type is UserPremiumType.gold:
+            yield Multiplier(2, f'{subs.coined_gold} Coined Gold', stack_type=StackType.multiplicative)
+        elif self.premium_type is UserPremiumType.silver:
+            yield Multiplier(1.5, f'{subs.coined_silver} Coined Silver', stack_type=StackType.multiplicative)
+
     @property
-    def coin_multiplier(self) -> float:
-        return 1 + sum(m.multiplier for m in self.walk_coin_multipliers())
+    def global_coin_multiplier(self) -> float:
+        return self.coin_multiplier_in_ctx(None)
+
+    def coin_multiplier_in_ctx(self, ctx: Context | None = None) -> float:
+        return aggregate_multipliers(self.walk_coin_multipliers(ctx))
 
     def walk_bank_space_growth_multipliers(self) -> Generator[Multiplier, Any, Any]:
         yield Multiplier(self.prestige * 0.5, f'{Emojis.get_prestige_emoji(self.prestige)} Prestige {self.prestige}')
@@ -2018,7 +2140,7 @@ class UserRecord(BaseRecord):
 
     @property
     def bank_space_growth_multiplier(self) -> float:
-        return 1 + sum(m.multiplier for m in self.walk_bank_space_growth_multipliers())
+        return aggregate_multipliers(self.walk_bank_space_growth_multipliers())
 
     @property
     def prestige(self) -> int:
@@ -2144,6 +2266,30 @@ class UserRecord(BaseRecord):
         return self.data.get('railgun_cooldown_expires_at')
 
     @property
+    def wheel_resets_at(self) -> datetime.datetime | None:
+        return self.data['wheel_resets_at']
+
+    @property
+    def wheel_spins_this_cycle(self) -> int:
+        return self.data['wheel_spins_this_cycle']
+
+    @property
+    def redeemed_vote_wheel_spin(self) -> bool:
+        return self.data['redeemed_vote_wheel_spin']
+
+    @property
+    def premium_type(self) -> UserPremiumType:
+        return UserPremiumType.none
+
+    @property
+    def email(self) -> str | None:
+        return self.data.get('email')
+
+    @property
+    def token(self) -> str | None:
+        return self.data.get('token')
+
+    @property
     def inventory_manager(self) -> InventoryManager:
         if not self.__inventory_manager:
             self.__inventory_manager = InventoryManager(self)
@@ -2240,3 +2386,8 @@ class GuildRecord(BaseRecord):
     def prefixes(self) -> list[str]:
         """Returns the guild's prefixes."""
         return self.data['prefixes']
+
+    @property
+    def premium_type(self) -> GuildPremiumType:
+        """Returns the guild's premium type."""
+        return GuildPremiumType.none
