@@ -686,7 +686,7 @@ class Poker(discord.ui.View):
         )
         if not self.players:
             await interaction.response.edit_message(embed=self.pregame_embed)
-            await interaction.followup.send(message, emphemeral=True)
+            await interaction.followup.send(message, ephemeral=True)
         else:
             await interaction.response.send_message(f'{message}\n-# You will play next round.', ephemeral=True)
 
@@ -757,7 +757,7 @@ class Poker(discord.ui.View):
             await self.ctx.db.get_user_record(interaction.user.id, fetch=False).add(wallet=self.buy_in)
             await interaction.response.edit_message(embed=self.pregame_embed)
             await interaction.followup.send(
-                f'You left the game! You were refunded the buy-in of {Emojis.coin} **{self.buy_in}**.',
+                f'You left the game! You were refunded the buy-in of {Emojis.coin} **{self.buy_in:,}**.',
                 ephemeral=True,
             )
 
