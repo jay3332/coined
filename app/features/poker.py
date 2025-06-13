@@ -559,7 +559,10 @@ class Poker(discord.ui.View):
     def next_turn(self) -> None:
         """Advances the turn to the next player."""
 
-        if all(player.done or player.all_in for player in self.players):
+        if (
+            all(player.done or player.all_in for player in self.players)
+            or sum(not player.folded for player in self.players) <= 1
+        ):
             self.next_round()
         else:
             self.turn_idx += 1
