@@ -717,10 +717,10 @@ class Poker(discord.ui.View):
         return embed
 
     async def lobby(self, interaction: TypedInteraction) -> bool:
-        if sum(p.can_play for p in self.players) > 1:
+        if sum(not p.requested_leave for p in self.players) > 1:
             return False
 
-        self.queue = {player.user: player.interaction for player in self.players if player.can_play}
+        self.queue = {player.user: player.interaction for player in self.players if not player.requested_leave}
         # cash out to remaining player
         for player in self.players:
             if player.can_play:
