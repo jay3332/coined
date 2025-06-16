@@ -294,8 +294,8 @@ class QuestTemplates:
     def get_specific_command_tickets(self, quest: Quest) -> int:
         """Get the number of tickets for a specific command quest."""
         if quest.extra in ('dig', 'work'):
-            return quest.arg // 5
-        return quest.arg // 10
+            return quest.arg // 2
+        return quest.arg // 4
 
     event_participant = QuestTemplate(key='event_participant', category=QuestCategory.event)
 

@@ -39,7 +39,7 @@ from app.util.common import (
     get_by_key,
     image_url_from_emoji,
     next_utc_midnight,
-    pick,
+    next_weekday_utc_midnight, pick,
     progress_bar,
 )
 from app.util.views import StaticCommandButton
@@ -1494,6 +1494,12 @@ class QuestRecord:
             'expires_at': self.expires_at,
         }
 
+    async def delete(self, *, connection: asyncpg.Connection | None = None) -> None:
+        """Deletes the quest from the database."""
+        query = 'DELETE FROM quests WHERE id = $1 AND user_id = $2'
+        await (connection or self.manager.record.db).execute(query, self.id, self.manager.record.user_id)
+        self.manager.cached.remove(self)
+
 
 class CompletedQuest(NamedTuple):
     slot: QuestSlot
@@ -2276,6 +2282,26 @@ class UserRecord(BaseRecord):
     @property
     def redeemed_vote_wheel_spin(self) -> bool:
         return self.data['redeemed_vote_wheel_spin']
+
+    @property
+    def quest_rerolls_remaining(self) -> int:
+        return self.data['quest_rerolls_remaining']
+
+    @property
+    def last_quest_reroll_update(self) -> datetime.datetime | None:
+        return self.data['last_quest_reroll_update']
+
+    async def update_quest_rerolls_remaining(self) -> int:
+        DEFAULT_MAX_REROLLS: int = 5
+
+        now = discord.utils.utcnow()
+        if self.last_quest_reroll_update is None or (
+            now >= next_weekday_utc_midnight(self.last_quest_reroll_update, weekday=0)
+        ):
+            await self.update(last_quest_reroll_update=now, quest_rerolls_remaining=DEFAULT_MAX_REROLLS)
+            return self.quest_rerolls_remaining
+
+        return self.quest_rerolls_remaining
 
     @property
     def premium_type(self) -> UserPremiumType:

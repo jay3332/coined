@@ -31,7 +31,7 @@ from app.core import (
 from app.core.helpers import EPHEMERAL, cooldown_message, user_premium_dynamic_cooldown
 from app.data.items import EnemyRef, FishingPoleMetadata, Item, ItemRarity, ItemType, Items
 from app.data.pets import Pet, Pets
-from app.data.quests import QUEST_PASS_CURVE, QUEST_PASS_REWARDS, QuestTemplates, reward_for_achieving_tier
+from app.data.quests import QUEST_PASS_CURVE, QUEST_PASS_REWARDS, QuestTemplates, QuestSlot, reward_for_achieving_tier
 from app.data.skills import RobberyTrainingButton
 from app.database import NotificationData, QuestManager, QuestRecord, RobFailReason, UserRecord
 from app.extensions.misc import _get_retry_after
@@ -42,6 +42,7 @@ from app.util.common import (
     cutoff, expansion_list,
     humanize_list,
     image_url_from_emoji,
+    next_weekday_utc_midnight,
     progress_bar,
     weighted_choice,
 )
@@ -2301,7 +2302,27 @@ class RefreshQuestsButton(discord.ui.Button['QuestsView']):
 
     async def callback(self, interaction: TypedInteraction) -> None:
         await self.container.update()
-        await interaction.response.edit_message(view=self.container.view)
+        await interaction.response.edit_message(view=self.view)
+
+
+class RerollQuestButton(discord.ui.Button['QuestsView']):
+    def __init__(self, container: QuestsContainer, slot: QuestSlot, *, disabled: bool) -> None:
+        assert slot is not QuestSlot.vote
+
+        super().__init__(label='Reroll', disabled=disabled)
+        self.container: QuestsContainer = container
+        self.slot: QuestSlot = slot
+
+    async def callback(self, interaction: TypedInteraction) -> None:
+        async with self.container.ctx.db.acquire() as conn:
+            if quest := self.container.quests.get_active_quest_for_slot(self.slot):
+                await quest.delete(connection=conn)
+
+            await self.view.record.add(quest_rerolls_remaining=-1, connection=conn)
+            await self.view.record.update(last_quest_reroll_update=discord.utils.utcnow(), connection=conn)
+
+        await self.container.update()
+        await interaction.response.edit_message(view=self.view)
 
 
 class QuestsContainer(discord.ui.Container['QuestsView']):
@@ -2329,6 +2350,13 @@ class QuestsContainer(discord.ui.Container['QuestsView']):
             f'-# You have a total of {Emojis.ticket} **{self.view.record.tickets:,}**',
             accessory=RefreshQuestsButton(self),
         ))
+
+        quest_rerolls_remaining = await self.view.record.update_quest_rerolls_remaining()
+        s = '' if quest_rerolls_remaining == 1 else 's'
+        self.add_item(discord.ui.TextDisplay(
+            f'-# You have {quest_rerolls_remaining} quest reroll{s} remaining.\n'
+            f'-# {Emojis.Expansion.standalone} Quest rerolls replenish {format_dt(next_weekday_utc_midnight(weekday=0), "R")}',
+        ))
         self.add_item(discord.ui.Separator(spacing=discord.SeparatorSize.large))
 
         quests = await self.quests.refresh_slots()
@@ -2338,6 +2366,7 @@ class QuestsContainer(discord.ui.Container['QuestsView']):
             show = quests.vote, quests.recurring_easy, quests.recurring_mid, quests.recurring_hard
 
         for i, entry in enumerate(show):
+            accessory = None
             if isinstance(entry, QuestRecord):
                 title = entry.quest.title
                 exp = [
@@ -2346,6 +2375,8 @@ class QuestsContainer(discord.ui.Container['QuestsView']):
                 ]
                 if entry.expires_at:
                     exp.append(f'Expires {format_dt(entry.expires_at, "R")}')
+                if entry.quest.slot is not QuestSlot.vote:
+                    accessory = RerollQuestButton(self, entry.quest.slot, disabled=quest_rerolls_remaining <= 0)
             else:
                 recent = self.quests.get_most_recent_quest_for_slot(entry.slot)
                 if not recent:
@@ -2356,7 +2387,12 @@ class QuestsContainer(discord.ui.Container['QuestsView']):
                     f'You received {Emojis.ticket} **{recent.quest.tickets:,}**',
                     f'Refreshes {format_dt(entry.refreshes_at, "R")}',
                 ]
-            self.add_item(discord.ui.TextDisplay(f'**{title}**\n{expansion_list(exp)}'))
+
+            content = f'**{title}**\n{expansion_list(exp)}'
+            self.add_item(
+                discord.ui.Section(content, accessory=accessory)
+                if accessory else discord.ui.TextDisplay(content)
+            )
             if i < len(show) - 1:
                 self.add_item(discord.ui.Separator(visible=False))
 

@@ -142,8 +142,8 @@ class Wheel:
         return frame
 
     @executor_function
-    def render_preview(self) -> discord.File:
-        with self.render_frame(0.0) as preview:
+    def render_preview(self, t: float = 0.0) -> discord.File:
+        with self.render_frame(t) as preview:
             preview.save(buffer := BytesIO(), format='png')
             buffer.seek(0)
             return discord.File(buffer, filename='wheel_preview.png')
@@ -223,15 +223,12 @@ class WheelActionRow(ui.ActionRow['WheelView']):
         self.parent.refresh_button.disabled = disabled
 
     async def _spin(self, interaction: TypedInteraction, after: callable) -> None:
+        await interaction.response.defer()
         self.wheel.spin()
         self.set_disabled(True)
 
         self.parent.media_gallery.items[0].media = discord.UnfurledMediaItem('attachment://wheel.gif')
-        meth = (
-            interaction.edit_original_response
-            if interaction.response.is_done() else interaction.response.edit_message
-        )
-        await meth(
+        await interaction.edit_original_response(
             view=self.view,
             attachments=[await self.wheel.render()],
             allowed_mentions=discord.AllowedMentions.none(),
@@ -245,8 +242,13 @@ class WheelActionRow(ui.ActionRow['WheelView']):
             await reward.apply(self.view.record, connection=conn)
             await after(self.view.record)
         await self.parent.update()
-        await sleep(self.wheel.total_t + 0.2)  # 0.2 is pretty arbitrary...is 200ms really the typical latency?
-        await interaction.edit_original_response(view=self.view, allowed_mentions=discord.AllowedMentions.none())
+
+        await sleep(self.wheel.total_t + 0.1)
+        await interaction.edit_original_response(
+            view=self.view,
+            attachments=[await self.wheel.render_preview(self.wheel.total_t)],
+            allowed_mentions=discord.AllowedMentions.none(),
+        )
 
     @ui.button(label='Spin!', style=discord.ButtonStyle.primary)
     async def spin(self, interaction: TypedInteraction, _btn: ui.Button):

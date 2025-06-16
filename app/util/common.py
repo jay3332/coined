@@ -516,3 +516,11 @@ def adjust_weight(weights: MutableMapping[T, int | float], /, item: T, *, k: flo
 def next_utc_midnight(base: datetime.datetime | None = None) -> datetime.datetime:
     base = base or discord.utils.utcnow()
     return base.replace(hour=0, minute=0, second=0, microsecond=0) + datetime.timedelta(days=1)
+
+
+def next_weekday_utc_midnight(base: datetime.datetime | None = None, *, weekday: int) -> datetime.datetime:
+    base = base or discord.utils.utcnow()
+    days_ahead = weekday - base.weekday()
+    if days_ahead <= 0:
+        days_ahead += 7
+    return (base + datetime.timedelta(days=days_ahead)).replace(hour=0, minute=0, second=0, microsecond=0)

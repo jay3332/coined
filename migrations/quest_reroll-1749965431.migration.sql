@@ -1,0 +1,3 @@
+ALTER TABLE users
+    ADD COLUMN IF NOT EXISTS quest_rerolls_remaining INTEGER NOT NULL DEFAULT 5,
+    ADD COLUMN IF NOT EXISTS last_quest_reroll_update TIMESTAMP WITH TIME ZONE;
