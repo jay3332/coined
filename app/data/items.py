@@ -1732,6 +1732,30 @@ class Items:
         ),
     )
 
+    diamond_net = Net(
+        key='diamond_net',
+        name='Diamond Net',
+        emoji='<:diamond_net:1384385760903303289>',
+        description=(
+            'Crystal clear net made out of diamonds! This net increases the chance of catching rarer pets. '
+            'This item must be crafted.'
+        ),
+        rarity=ItemRarity.legendary,
+        price=250000,
+        metadata=NetMetadata(
+            weights=generate_pet_weights(
+                none=8,
+                common=60,
+                uncommon=15,
+                rare=10,
+                epic=4,
+                legendary=2,
+                mythic=1,
+            ),
+            priority=2,
+        ),
+    )
+
     cup = Item(
         type=ItemType.tool,
         key='cup',

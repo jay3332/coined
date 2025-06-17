@@ -153,6 +153,21 @@ class Recipes:
         },
     )
 
+    diamond_net = Recipe(
+        key="diamond_net",
+        name="Diamond Net",
+        description=Items.diamond_net.description,
+        emoji=Items.diamond_net.emoji,
+        price=800_000,
+        ingredients={
+            Items.net: 10,
+            Items.diamond: 3,
+        },
+        result={
+            Items.diamond_net: 1,
+        },
+    )
+
     fish_bait = Recipe(
         key="fish_bait",
         name="Fish Bait",
