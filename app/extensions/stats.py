@@ -283,7 +283,7 @@ class Stats(Cog):
 
         not_earned = ((milestone, reward) for milestone, reward in LEVEL_REWARDS.items() if level < milestone)
         next_reward = min(not_earned, default=(None, None), key=lambda x: x[0])
-        if next_reward:
+        if ctx.author == user and next_reward[0]:
             milestone, reward = next_reward
             embed.add_field(
                 name=f'\U0001f3c5 Next Milestone: Level {milestone:,}',
@@ -308,14 +308,15 @@ class Stats(Cog):
         multipliers = list(multipliers)
         return '\n'.join(m.display for m in multipliers if m.multiplier), aggregate_multipliers(multipliers)
 
-    @command(aliases={'mul', 'ml', 'mti', 'multi', 'multipliers'}, hybrid=True)
+    @command(aliases={'mul', 'ml', 'mti', 'multi', 'multipliers'}, hybrid=True, with_app_command=False)
     @simple_cooldown(2, 5)
-    async def multiplier(self, ctx: Context) -> CommandResponse:
+    async def multiplier(self, ctx: Context, *, user: CaseInsensitiveMemberConverter | None = None) -> CommandResponse:
         """View a detailed breakdown of all multipliers."""
-        data = await ctx.db.get_user_record(ctx.author.id)
+        user = user or ctx.author
+        data = await ctx.db.get_user_record(user.id)
 
         embed = discord.Embed(color=Colors.primary, timestamp=ctx.now)
-        embed.set_author(name=f"Multipliers: {ctx.author}", icon_url=ctx.author.display_avatar)
+        embed.set_author(name=f"Multipliers: {user}", icon_url=user.display_avatar)
         embed.set_thumbnail(url=image_url_from_emoji('\U0001f4c8'))
 
         # XP Multi
@@ -343,6 +344,11 @@ class Stats(Cog):
         )
 
         return embed, REPLY
+
+    @multiplier.define_app_command()
+    @app_commands.describe(user='The user to view the multipliers of.')
+    async def multiplier_app_command(self, ctx: HybridContext, user: discord.Member = None) -> None:
+        await ctx.invoke(ctx.command, user=user)  # type: ignore
 
     @command(aliases={"rich", "lb", "top", "richest", "wealthiest"}, hybrid=True, with_app_command=False)
     @simple_cooldown(2, 5)
