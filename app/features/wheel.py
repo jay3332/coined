@@ -227,7 +227,7 @@ class WheelActionRow(ui.ActionRow['WheelView']):
         self.wheel.spin()
         self.set_disabled(True)
 
-        self.parent.media_gallery.items[0].media = discord.UnfurledMediaItem('attachment://wheel.gif')
+        self.parent.filename = 'attachment://wheel.gif'
         await interaction.edit_original_response(
             view=self.view,
             attachments=[await self.wheel.render()],
@@ -244,6 +244,7 @@ class WheelActionRow(ui.ActionRow['WheelView']):
         await self.parent.update()
 
         await sleep(self.wheel.total_t + 0.1)
+        self.parent.filename = 'attachment://wheel_preview.png'
         await interaction.edit_original_response(
             view=self.view,
             attachments=[await self.wheel.render_preview(self.wheel.total_t)],
@@ -301,7 +302,7 @@ class WheelContainer(ui.Container['WheelView']):
         self.wheel: Wheel = wheel
         self.refresh_button = RefreshButton(self)
         self.action_row = WheelActionRow(self)
-        self.media_gallery = ui.MediaGallery(discord.MediaGalleryItem(media='attachment://wheel_preview.png'))
+        self.filename: str = 'attachment://wheel_preview.png'
         self.add_item(self.action_row)  # just to make it aware of the view
 
     @property
@@ -341,7 +342,7 @@ class WheelContainer(ui.Container['WheelView']):
         ))
         self.add_item(ui.Separator(spacing=discord.SeparatorSize.large))
 
-        self.add_item(self.media_gallery)
+        self.add_item(ui.MediaGallery(discord.MediaGalleryItem(media=self.filename)))
         if self.wheel.spins:
             self.add_item(ui.TextDisplay(f'### You spun {self.view.rewards[self.wheel.choice].short}!'))
         self.action_row.update()
