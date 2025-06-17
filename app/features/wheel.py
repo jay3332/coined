@@ -144,9 +144,9 @@ class Wheel:
     @executor_function
     def render_preview(self, t: float = 0.0) -> discord.File:
         with self.render_frame(t) as preview:
-            preview.save(buffer := BytesIO(), format='png')
+            preview.save(buffer := BytesIO(), format='gif')
             buffer.seek(0)
-            return discord.File(buffer, filename='wheel_preview.png')
+            return discord.File(buffer, filename='wheel.gif')
 
     @executor_function
     def render(self) -> discord.File:
@@ -227,7 +227,6 @@ class WheelActionRow(ui.ActionRow['WheelView']):
         self.wheel.spin()
         self.set_disabled(True)
 
-        self.parent.filename = 'attachment://wheel.gif'
         await interaction.edit_original_response(
             view=self.view,
             attachments=[await self.wheel.render()],
@@ -244,7 +243,6 @@ class WheelActionRow(ui.ActionRow['WheelView']):
         await self.parent.update()
 
         await sleep(self.wheel.total_t + 0.1)
-        self.parent.filename = 'attachment://wheel_preview.png'
         await interaction.edit_original_response(
             view=self.view,
             attachments=[await self.wheel.render_preview(self.wheel.total_t)],
@@ -302,7 +300,7 @@ class WheelContainer(ui.Container['WheelView']):
         self.wheel: Wheel = wheel
         self.refresh_button = RefreshButton(self)
         self.action_row = WheelActionRow(self)
-        self.filename: str = 'attachment://wheel_preview.png'
+        self.media_gallery = ui.MediaGallery(discord.MediaGalleryItem(media='attachment://wheel.gif'))
         self.add_item(self.action_row)  # just to make it aware of the view
 
     @property
@@ -342,7 +340,7 @@ class WheelContainer(ui.Container['WheelView']):
         ))
         self.add_item(ui.Separator(spacing=discord.SeparatorSize.large))
 
-        self.add_item(ui.MediaGallery(discord.MediaGalleryItem(media=self.filename)))
+        self.add_item(self.media_gallery)
         if self.wheel.spins:
             self.add_item(ui.TextDisplay(f'### You spun {self.view.rewards[self.wheel.choice].short}!'))
         self.action_row.update()
