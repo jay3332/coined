@@ -122,6 +122,7 @@ class SettingsView(UserLayoutView):
     def __init__(self, ctx: Context, record: UserRecord) -> None:
         super().__init__(ctx.author, timeout=300)
         self.add_item(container := SettingsContainer(ctx, record))
+        container.update(container.get_page_entries())
         self.container = container
 
 
@@ -392,9 +393,7 @@ class Miscellaneous(Cog):
     async def settings(self, ctx: Context, setting: query_setting = None, value: better_bool = None):
         """View your current settings and/or change them."""
         if setting is None:
-            view = SettingsView(ctx, await ctx.db.get_user_record(ctx.author.id))
-            view.container.update(view.container.get_page_entries())
-            return view, REPLY
+            return SettingsView(ctx, await ctx.db.get_user_record(ctx.author.id)), REPLY
 
         record = await ctx.db.get_user_record(ctx.author.id)
 
@@ -410,18 +409,22 @@ class Miscellaneous(Cog):
         await setting.set(ctx, value)
 
     @settings.app_command.command(name='view')
-    async def settings_app_command(self, ctx: HybridContext) -> None:
+    async def settings_app_command(self, interaction: TypedInteraction) -> None:
         """View and modify your current user settings."""
-        await ctx.invoke(ctx.command, setting=None, value=None)  # type: ignore
+        await interaction.response.send_message(view=SettingsView(
+            Context.from_interaction(interaction),
+            await self.bot.db.get_user_record(interaction.user.id),
+        ))
 
     @settings.app_command.command(name='set')
     @app_commands.describe(setting='The setting to change', value='The new value for the setting')
     @app_commands.choices(setting=[
         app_commands.Choice(name=setting.name, value=setting.key) for setting in walk_collection(Settings, Setting)
     ])
-    async def settings_set(self, ctx: HybridContext, setting: str, value: bool) -> None:
+    async def settings_set(self, interaction: TypedInteraction, setting: str, value: bool) -> None:
         """Change a specific setting to a new value."""
         setting = get_by_key(Settings, setting)
+        ctx = Context.from_interaction(interaction)
         await ctx.invoke(self.settings, setting=setting, value=value)  # type: ignore
 
     MENTION_REGEX: re.Pattern[str] = re.compile(r'<@!?\d+>')
