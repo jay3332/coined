@@ -70,10 +70,7 @@ class ToggleSettingButton(ui.Button['SettingsView']):
         self.parent = parent
         self.setting = setting
         self.value = parent.record.data.get(setting.key, False)
-        super().__init__(
-            style=discord.ButtonStyle.danger if self.value else discord.ButtonStyle.success,
-            label='Disable' if self.value else 'Enable',
-        )
+        super().__init__(label='Disable' if self.value else 'Enable')
 
     async def callback(self, interaction: TypedInteraction) -> None:
         await self.parent.record.update(**{self.setting.key: not self.value})
