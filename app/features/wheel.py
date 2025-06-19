@@ -338,7 +338,7 @@ class WheelContainer(ui.Container['WheelView']):
             f'-# Resets {format_dt(self.view.record.wheel_resets_at, "R")}',
             accessory=self.refresh_button,
         ))
-        self.add_item(ui.Separator(spacing=discord.SeparatorSize.large))
+        self.add_item(ui.Separator(spacing=discord.SeparatorSpacing.large))
 
         self.add_item(self.media_gallery)
         if self.wheel.spins:
@@ -353,7 +353,7 @@ class WheelContainer(ui.Container['WheelView']):
             )))
 
         if self.view.total_reward:
-            self.add_item(ui.Separator(spacing=discord.SeparatorSize.large))
+            self.add_item(ui.Separator(spacing=discord.SeparatorSpacing.large))
             self.add_item(ui.TextDisplay(f'### You have received:\n{self.view.total_reward}'))
 
 

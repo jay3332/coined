@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import random
+import zlib
 from asyncio import gather
+from base64 import b64decode, b64encode, urlsafe_b64encode
 from collections import defaultdict
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -9,25 +11,53 @@ from datetime import timedelta
 from enum import Enum
 from math import ceil
 from io import BytesIO
-from typing import ClassVar, TypeAlias
+from typing import ClassVar, Literal, NamedTuple, TypeAlias, Self
 
+import ormsgpack
 from discord import ButtonStyle, Embed, File, HTTPException, MediaGalleryItem, Message, ui
 from discord.utils import MISSING, format_dt, utcnow
 from PIL import Image, ImageDraw
 
 from app.core import Context
-from app.data.backpacks import Backpack
+from app.data.backpacks import Backpack, Backpacks
 from app.data.pets import Pets
 from app.data.quests import QuestTemplates
 from app.database import InventoryManager, PetManager, QuestManager, UserRecord
 from app.data.biomes import Biome, Biomes
 from app.data.items import ItemType, Items, Item, ToolMetadata
-from app.util.common import executor_function, humanize_duration, image_url_from_emoji, progress_bar, weighted_choice
+from app.util.common import (
+    executor_function,
+    get_by_key,
+    humanize_duration,
+    image_url_from_emoji,
+    progress_bar,
+    weighted_choice,
+)
 from app.util.types import TypedInteraction
 from app.util.views import UserLayoutView
 from config import Colors, Emojis
 
 RGB: TypeAlias = tuple[int, int, int]
+
+SAVE_SHORTHANDS_K2V = dict(
+    # ores
+    iron='I',
+    copper='C',
+    silver='S',
+    gold='G',
+    obsidian='O',
+    emerald='E',
+    ruby='R',
+    diamond='D',
+    # worms
+    worm='W',
+    gummy_worm='U',
+    hook_worm='H',
+    earthworm='A',
+    poly_worm='P',
+    dust_mite='M',
+)
+SAVE_SHORTHANDS_V2K = {v: k for k, v in SAVE_SHORTHANDS_K2V.items()}
 
 
 @dataclass
@@ -36,6 +66,174 @@ class Cell:
     item: Item | None
     dirt_index: int
     hp: float = 0
+
+    @classmethod
+    def from_coins(cls, coins: int, dirt_idx: int) -> Self:
+        """Creates a Cell representing coins."""
+        return cls(coins=coins, item=None, dirt_index=dirt_idx)
+
+    @classmethod
+    def from_item(cls, item: Item, dirt_idx: int, *, hp: float | None = None) -> Self:
+        """Creates a Cell representing dirt."""
+        hp = hp if hp is not None else item.hp
+        return cls(coins=0, item=item, dirt_index=dirt_idx, hp=hp)
+
+    @property
+    def is_untouched_dirt(self) -> bool:
+        return self.item is not None and self.item.type is ItemType.dirt and self.hp >= self.item.hp
+
+    def to_bytes(self) -> bytes:
+        if self.item is not None:
+            hp_bytes = max(0, round(self.hp * 10)).to_bytes(2, "big")
+            if self.item.type is ItemType.dirt:
+                if self.hp >= self.item.hp:
+                    return _GridParser.OP_DIRT.to_bytes()
+                return _GridParser.OP_DIRT_HP.to_bytes() + hp_bytes
+
+            key = self.item.key
+            if key in SAVE_SHORTHANDS_K2V:
+                key = SAVE_SHORTHANDS_K2V[key]
+            return _GridParser.OP_ITEM.to_bytes() + key.encode('ascii') + b':' + hp_bytes
+
+        return _GridParser.OP_COINS.to_bytes() + self.coins.to_bytes(4, "big")
+
+
+class _GridParser:
+    OP_EMPTY = 0  # \x00
+    OP_DIRT = 1  # \x01
+    OP_DIRT_HP = 2  # \x02 ++ (hp*10 as u16)
+    OP_COINS = 3  # \x03 ++ (coins as u32)
+    OP_ITEM = 4  # \x04 ++ (key):(hp*10 as u16)
+    OP_DIRT_FULL_ROW = 5  # \x05
+    OP_DIRT_FULL_ROW_MINUS_EMPTY = 6  # \x06 ++ (index of missing cell as u8)
+    OP_DIRT_FULL_ROW_MINUS_COINS = 7  # \x07 ++ (index of missing cell as u8) ++ (coins as u32)
+    OP_DIRT_FULL_ROW_MINUS_DIRT = 8  # \x08 ++ (index of missing cell as u8) ++ (hp*10 as u16)
+    OP_DIRT_FULL_ROW_MINUS_ITEM = 9  # \x09 ++ (index of missing cell as u8) ++ (key):(hp*10 as u16)
+    OP_LOSSY_ROWS = 10  # \x0a ++ (nrows as u8)
+
+    def __init__(self, biome: Biome, raw: bytes, width: int) -> None:
+        self.biome: Biome = biome
+        self.raw = raw
+        self.width = width
+        self.cursor = 0
+
+    def peek_byte(self) -> int:
+        if self.cursor < len(self.raw):
+            return self.raw[self.cursor]
+        raise EOFError
+
+    def consume_byte(self) -> int:
+        if self.cursor >= len(self.raw):
+            raise EOFError
+        byte = self.raw[self.cursor]
+        self.cursor += 1
+        return byte
+
+    def consume_u16(self) -> int:
+        value = int.from_bytes(self.raw[self.cursor:self.cursor + 2], 'big')
+        self.cursor += 2
+        return value
+
+    def consume_u32(self) -> int:
+        value = int.from_bytes(self.raw[self.cursor:self.cursor + 4], 'big')
+        self.cursor += 4
+        return value
+
+    def consume_item(self, dirt_index: int) -> Cell | None:
+        key_bytes = bytearray()
+        while self.peek_byte() != ord(':'):
+            key_bytes.append(self.consume_byte())
+        self.consume_byte()  # consume ':'
+
+        try:
+            key = key_bytes.decode('ascii')
+        except UnicodeDecodeError:
+            raise ValueError(f'Invalid item key: {key_bytes.decode(errors="ignore")}')
+        if key in SAVE_SHORTHANDS_V2K:
+            key = SAVE_SHORTHANDS_V2K[key]
+        item = get_by_key(Items, key)
+        if item is None:
+            raise ValueError(f'Unknown item key: {key}')
+
+        hp = self.consume_u16() / 10.0
+        return Cell.from_item(item, dirt_index, hp=hp)
+
+    def parse(self) -> list[list[Cell | None]]:
+        grid = [row := []]
+        while self.cursor < len(self.raw):
+            op = self.consume_byte()
+            y = len(grid) - 1
+
+            dirt_index = random.randrange(0, DiggingSession.GEN_IMAGES_PER_DIRT)
+            if op == self.OP_EMPTY:
+                row.append(None)
+            elif op == self.OP_DIRT:
+                item = self.biome.get_layer(y).dirt
+                row.append(Cell.from_item(item, dirt_index))
+            elif op == self.OP_DIRT_HP:
+                item = self.biome.get_layer(y).dirt
+                hp = self.consume_u16() / 10.0
+                row.append(Cell.from_item(item, dirt_index, hp=hp))
+            elif op == self.OP_COINS:
+                coins = self.consume_u32()
+                row.append(Cell.from_coins(coins, dirt_index))
+            elif op == self.OP_ITEM:
+                row.append(self.consume_item(dirt_index))
+            elif op == self.OP_DIRT_FULL_ROW:
+                item = self.biome.get_layer(y).dirt
+                row.extend(Cell.from_item(item, dirt_index) for _ in range(self.width))
+            elif op == self.OP_DIRT_FULL_ROW_MINUS_EMPTY:
+                idx = self.consume_byte()
+                item = self.biome.get_layer(y).dirt
+                row.extend(
+                    Cell.from_item(item, dirt_index) if i != idx else None for i in range(self.width)
+                )
+            elif op == self.OP_DIRT_FULL_ROW_MINUS_COINS:
+                idx = self.consume_byte()
+                coins = self.consume_u32()
+                item = self.biome.get_layer(y).dirt
+                row.extend(
+                    Cell.from_item(item, dirt_index) if i != idx else Cell.from_coins(coins, dirt_index)
+                    for i in range(self.width)
+                )
+            elif op == self.OP_DIRT_FULL_ROW_MINUS_DIRT:
+                idx = self.consume_byte()
+                hp = self.consume_u16() / 10.0
+                dirt = self.biome.get_layer(y).dirt
+                row.extend(
+                    Cell.from_item(dirt, dirt_index, hp=hp if i == idx else None)
+                    for i in range(self.width)
+                )
+            elif op == self.OP_DIRT_FULL_ROW_MINUS_ITEM:
+                idx = self.consume_byte()
+                dirt = self.biome.get_layer(y).dirt
+                cell = self.consume_item(dirt_index)
+                if cell is None:
+                    raise ValueError('Expected item after OP_DIRT_FULL_ROW_MINUS_ITEM')
+                row.extend(
+                    Cell.from_item(dirt, dirt_index) if i != idx else cell for i in range(self.width)
+                )
+            elif op == self.OP_LOSSY_ROWS:
+                nrows = self.consume_byte()
+                dirt = self.biome.get_layer(y).dirt
+                for _ in range(nrows):
+                    row.extend(Cell.from_item(dirt, dirt_index) for _ in range(self.width))
+                    grid.append(row := [])
+            else:
+                raise ValueError(f'Unknown opcode: {op}')
+
+            if len(row) >= self.width:
+                grid.append(row := [])
+
+        if not grid[-1]:
+            grid.pop()
+        return grid
+
+
+def decode_grid(biome: Biome, raw: bytes, *, width: int = MISSING) -> list[list[Cell | None]]:
+    if width is MISSING:
+        width = DiggingSession.GRID_WIDTH
+    return _GridParser(biome, raw, width).parse()
 
 
 class NavigationRow(ui.ActionRow['DiggingView']):
@@ -459,6 +657,18 @@ class DiggingActionRow(ui.ActionRow['DiggingView']):
         await itx.response.edit_message(view=self.view, attachments=[await self.view.generate_image(draw_hp=True)])
         await self.edit_or_send(itx, embed=embed)
 
+    @ui.button(label='save')
+    async def _test_save(self, itx: TypedInteraction, _):
+        await itx.response.send_message(
+            file=File(BytesIO(self.session.serialize().to_bytes()), filename='digging_session.digfile'),
+        )
+
+    @ui.button(label='capture grid')
+    async def _test_savel(self, itx: TypedInteraction, _):
+        await itx.response.send_message(
+            f'https://coined.jay3332.tech/grid/{self.session.capture_grid()}'
+        )
+
     def update(self) -> None:
         self.clear_items()
         if self.view.is_finished():
@@ -491,16 +701,17 @@ class DiggingActionRow(ui.ActionRow['DiggingView']):
 
         dynamite = self.session.inventory.cached.quantity_of(Items.dynamite)
         self.add_item(self.dynamite)
+        # self.add_item(self._test_save).add_item(self._test_savel)
 
         self.dynamite.label = str(dynamite) if dynamite > 0 else None
         self.dynamite.disabled = dynamite <= 0 or self.session.backpack_occupied == self.session.backpack.capacity
 
 
 class DiggingView(UserLayoutView):
-    def __init__(self, ctx: Context) -> None:
+    def __init__(self, ctx: Context, *, session: DiggingSession | None = None) -> None:
         super().__init__(ctx.author, timeout=600)
         self.ctx: Context = ctx
-        self.session: DiggingSession = DiggingSession(ctx)
+        self.session: DiggingSession = session or DiggingSession(ctx)
         self.container: DiggingContainer = DiggingContainer(self)
 
         self.add_item(self.container)
@@ -563,7 +774,7 @@ class DiggingSession:
         self.position: tuple[int, int] = (self.GRID_WIDTH // 2, -1)
         self.target: DiggingSession.Target = self.Target.down
         self.grid: list[list[Cell | None]] = []
-        self.explored = set()
+        self.explored: set[tuple[int, int]] = set()
 
         self.collected_coins: int = 0
         self.collected_items: defaultdict[Item, int] = defaultdict(int)
@@ -590,6 +801,10 @@ class DiggingSession:
 
     async def prepare(self) -> None:
         """Prepares the digging session by ensuring dirt and avatar images are cached."""
+        if getattr(self, '__prepared__', False):
+            return
+        self.__prepared__ = True
+
         self.record: UserRecord = await self.ctx.fetch_author_record()
         self.inventory: InventoryManager = await self.record.inventory_manager.wait()
         self.pets: PetManager = await self.record.pet_manager.wait()
@@ -619,6 +834,10 @@ class DiggingSession:
 
         self.stamina: int = self.max_stamina  # TODO: unified stamina system
 
+        await self.prepare_static_assets()
+        self.grid: list[list[Cell | None]] = [self.generate_row(y) for y in self.y_range if y >= 0]
+
+    async def prepare_static_assets(self) -> None:
         fp = await self.fetch_bytes(self.ctx.author.display_avatar.with_size(64).with_format('png').url)
         self.avatar_image: Image.Image = await self.open_sized(fp, (self.OVERLAY_WIDTH, self.OVERLAY_WIDTH))
 
@@ -632,7 +851,6 @@ class DiggingSession:
 
         await self.prepare_backdrop()
         await self.prepare_assets()
-        self.grid: list[list[Cell | None]] = [self.generate_row(y) for y in self.y_range if y >= 0]
 
     SPAWN_COUNT: ClassVar[dict[int, float]] = {
         0: 4,
@@ -962,3 +1180,172 @@ class DiggingSession:
             self.ctx.bot.loop.create_task(quest.add_progress(total_hp))
 
         return total_hp, added_coins, added_items
+
+    def _flatten_coordinate(self, x: int, y: int) -> int:
+        return y * self.GRID_WIDTH + x
+
+    @classmethod
+    async def from_dict(cls, context: Context, biome: Biome = Biomes.backyard, *, data: RawDiggingState) -> Self:
+        self = cls(context, biome=biome)
+
+        width = data.grid_width
+        self.position = data.position % width, data.position // width
+        self.target = DiggingSession.Target(data.target)
+        self.collected_coins = data.collected_coins
+        self.collected_items |= {
+            get_by_key(Items, key): quantity for key, quantity in data.collected_items.items()
+        }
+
+        raw = b64decode(data.explored)
+        explored = (int.from_bytes(raw[i:i + 2], 'big') for i in range(0, len(raw), 2))
+        self.explored |= {(coord % width, coord // width) for coord in explored}
+
+        self.record = await self.ctx.fetch_author_record()
+        self.inventory = await self.record.inventory_manager.wait()
+        self.pets = await self.record.pet_manager.wait()
+        self.quests = await self.record.quest_manager.wait()
+
+        self.stamina = data.stamina
+        self.max_stamina = data.max_stamina
+        self.backpack = get_by_key(Backpacks, data.backpack)
+        self.shovel = get_by_key(Items, data.shovel) if data.shovel else None
+        self.pickaxe = get_by_key(Items, data.pickaxe) if data.pickaxe else None
+        self.coin_multiplier = data.coin_multiplier
+        self.hp_multiplier = data.hp_multiplier
+        await self.prepare_static_assets()
+
+        self.grid = decode_grid(biome, data.grid, width=width)
+        self.__prepared__ = True
+        return self
+
+    @classmethod
+    def _serialize_row(cls, row: list[Cell | None]) -> bytes:
+        untouched = sum(1 for cell in row if cell and cell.is_untouched_dirt)
+        if untouched == len(row):
+            return _GridParser.OP_DIRT_FULL_ROW.to_bytes()
+        elif untouched == len(row) - 1:
+            if None in row:
+                return _GridParser.OP_DIRT_FULL_ROW_MINUS_EMPTY.to_bytes() + row.index(None).to_bytes()
+
+            coins_cell = next(
+                ((i, cell.coins) for i, cell in enumerate(row) if cell and cell.coins), None
+            )
+            if coins_cell:
+                i, coins = coins_cell
+                return _GridParser.OP_DIRT_FULL_ROW_MINUS_COINS.to_bytes() + i.to_bytes() + coins.to_bytes(4, 'big')
+
+            item_cell = next(
+                ((i, cell.item, cell.hp) for i, cell in enumerate(row) if cell and cell.item), None
+            )
+            if item_cell:
+                i, item, hp = item_cell
+                hp_bytes = max(0, round(hp * 10)).to_bytes(2, 'big')
+                if item.type is ItemType.dirt:
+                    return (
+                        _GridParser.OP_DIRT_FULL_ROW_MINUS_DIRT.to_bytes() + i.to_bytes() + hp_bytes
+                    )
+                key = item.key
+                if key in SAVE_SHORTHANDS_K2V:
+                    key = SAVE_SHORTHANDS_K2V[key]
+                return (
+                    _GridParser.OP_DIRT_FULL_ROW_MINUS_ITEM.to_bytes()
+                    + i.to_bytes()
+                    + key.encode('ascii')
+                    + b':'
+                    + hp_bytes
+                )
+
+        return b''.join(
+            cell.to_bytes() if cell is not None else _GridParser.OP_EMPTY.to_bytes()
+            for cell in row
+        )
+
+    def serialize_grid(self, *, lossy: bool = False) -> bytes:
+        if not lossy:
+            return b''.join(map(self._serialize_row, self.grid))
+
+        # only serialize first few visible rows + currently visible rows
+        surface_bottom = ceil((self.IMAGE_HEIGHT - self.Y_OFFSET) / self.CELL_WIDTH)
+        surface_rows = self.grid[:surface_bottom]
+        visible_rows = self.grid[self.y_range.start:self.y_range.stop]
+
+        missing = self.y_range.start - surface_bottom
+        if missing <= 2:  # not worth it
+            return self.serialize_grid(lossy=False)
+        lossy_rows = b''
+        while missing > 0:
+            batch = min(missing, 255)
+            lossy_rows += _GridParser.OP_LOSSY_ROWS.to_bytes() + missing.to_bytes(1)
+            missing -= batch
+
+        return (
+            b''.join(map(self._serialize_row, surface_rows))
+            + lossy_rows
+            + b''.join(map(self._serialize_row, visible_rows))
+        )
+
+    def serialize(self, *, lossy_grid: bool = False) -> RawDiggingState:
+        self._cleanup_explored()
+        explored = b''.join(
+            self._flatten_coordinate(x, y).to_bytes(2, 'big')
+            for x, y in self.explored
+        )
+
+        return RawDiggingState(
+            position=self._flatten_coordinate(*self.position),
+            target=self.target.value,  # type: ignore
+            collected_coins=self.collected_coins,
+            collected_items={k.key: v for k, v in self.collected_items.items()},
+            explored=b64encode(explored).decode('ascii'),
+            grid=self.serialize_grid(lossy=lossy_grid),
+            grid_width=self.GRID_WIDTH,
+            stamina=self.stamina,
+            max_stamina=self.max_stamina,
+            backpack=self.backpack.key,
+            shovel=self.shovel.key if self.shovel else None,
+            pickaxe=self.pickaxe.key if self.pickaxe else None,
+            coin_multiplier=self.coin_multiplier,
+            hp_multiplier=self.hp_multiplier,
+        )
+
+    def capture_grid(self) -> str:
+        """Return the following bytes gzipped and base64-encoded:
+
+        (flattened position as i24) ++ (grid width as u8) ++ (serialized grid)
+        """
+        serialized = zlib.compress(
+            self._flatten_coordinate(*self.position).to_bytes(3, 'big', signed=True)
+            + self.GRID_WIDTH.to_bytes()
+            + self.serialize_grid(lossy=False)
+        )
+        return urlsafe_b64encode(serialized).decode('ascii')
+
+
+class RawDiggingState(NamedTuple):
+    position: int  # flattened
+    target: Literal[0, 1, 2]
+    collected_coins: int
+    collected_items: dict[str, int]
+    explored: str  # b64-encoded sequence of flattened coordinates as u16's
+    grid: bytes
+    grid_width: int
+
+    stamina: int
+    max_stamina: int
+    backpack: str
+    shovel: str | None
+    pickaxe: str | None
+    coin_multiplier: float
+    hp_multiplier: float
+
+    @classmethod
+    def from_bytes(cls, raw: bytes | bytearray, *, decompress: bool = True) -> Self:
+        if decompress:
+            raw = zlib.decompress(raw)
+        return cls(*ormsgpack.unpackb(raw))
+
+    def to_bytes(self, *, compress: bool = True) -> bytes:
+        out = ormsgpack.packb(list(self))
+        if compress:
+            return zlib.compress(out)
+        return out

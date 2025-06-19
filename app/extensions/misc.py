@@ -10,7 +10,7 @@ from typing import Any, NamedTuple, TYPE_CHECKING
 
 import discord
 from aiohttp import ClientTimeout
-from discord import app_commands
+from discord import app_commands, ui
 from discord.app_commands import Choice
 from discord.ext import commands
 from discord.utils import format_dt, oauth_url
@@ -21,12 +21,12 @@ from app.database import UserRecord
 from app.data.items import Items
 from app.data.settings import Setting, Settings
 from app.extensions.events import VOTE_REWARDS
-from app.util.common import converter, cutoff, pluralize, walk_collection
+from app.util.common import converter, cutoff, get_by_key, pluralize, walk_collection
 from app.util.converters import better_bool, query_setting
-from app.util.pagination import FieldBasedFormatter, LineBasedFormatter, Paginator
+from app.util.pagination import EntryNavigableItem, LineBasedFormatter, NavigationRow, Paginator
 from app.util.structures import Timer as PingTimer
 from app.util.types import CommandResponse, TypedInteraction
-from app.util.views import UserView
+from app.util.views import UserLayoutView, UserView
 from config import Colors, Emojis, default_permissions, support_server, website
 
 if TYPE_CHECKING:
@@ -63,6 +63,66 @@ class CooldownReminderMetadata(NamedTuple):
     def from_timer(cls: type[Self], timer: Timer) -> Self:
         metadata = timer.metadata
         return cls(channel_id=metadata['channel_id'], jump_url=metadata['jump_url'], timer_id=timer.id)
+
+
+class ToggleSettingButton(ui.Button['SettingsView']):
+    def __init__(self, setting: Setting, parent: SettingsContainer) -> None:
+        self.parent = parent
+        self.setting = setting
+        self.value = parent.record.data.get(setting.key, False)
+        super().__init__(
+            style=discord.ButtonStyle.danger if self.value else discord.ButtonStyle.success,
+            label='Disable' if self.value else 'Enable',
+        )
+
+    async def callback(self, interaction: TypedInteraction) -> None:
+        await self.parent.record.update(**{self.setting.key: not self.value})
+        await self.parent.set_entries(interaction, self.parent.get_page_entries())
+
+        emoji = Emojis.disabled if self.value else Emojis.enabled
+        await interaction.followup.send(
+            f'Setting **{self.setting.name}** set to {emoji} **{"Disabled" if self.value else "Enabled"}**.',
+            ephemeral=True,
+        )
+
+
+class SettingsContainer(ui.Container['SettingsView'], EntryNavigableItem[Setting]):
+    def __init__(self, ctx: Context, record: UserRecord) -> None:
+        EntryNavigableItem.__init__(self, list(walk_collection(Settings, Setting)), per_page=5)
+        ui.Container.__init__(self, accent_color=Colors.secondary)
+        self.ctx = ctx
+        self.record = record
+        self.nav = NavigationRow(self)
+
+    def update(self, entries: list[Setting]) -> None:
+        self.clear_items()
+        self.add_item(ui.TextDisplay(f'## User Settings for {self.ctx.author}'))
+        self.add_item(ui.Separator(spacing=discord.SeparatorSpacing.large))
+
+        for i, setting in enumerate(entries):
+            if i > 0:
+                self.add_item(ui.Separator(visible=False))
+            current = self.record.data.get(setting.key, False)
+            self.add_item(ui.Section(
+                f'### {Emojis.enabled if current else Emojis.disabled} {setting.name}',
+                f'-# {setting.description}',
+                accessory=ToggleSettingButton(setting, self),
+            ))
+
+        if self.max_pages > 1:
+            self.add_item(ui.Separator(spacing=discord.SeparatorSpacing.large))
+            self.add_item(self.nav)
+
+    async def set_entries(self, interaction: TypedInteraction, entries: list[Setting]) -> None:
+        self.update(entries)
+        await interaction.response.edit_message(view=self.view)
+
+
+class SettingsView(UserLayoutView):
+    def __init__(self, ctx: Context, record: UserRecord) -> None:
+        super().__init__(ctx.author, timeout=300)
+        self.add_item(container := SettingsContainer(ctx, record))
+        self.container = container
 
 
 class Miscellaneous(Cog):
@@ -188,7 +248,7 @@ class Miscellaneous(Cog):
 
     @command(alias='link', hybrid=True)
     @simple_cooldown(2, 2)
-    async def invite(self, ctx: Context) -> tuple[str, discord.ui.View, Any]:
+    async def invite(self, ctx: Context) -> tuple[str, ui.View, Any]:
         """Gives you a link to invite the bot to your server."""
         link = oauth_url(
             ctx.bot.user.id,
@@ -196,11 +256,11 @@ class Miscellaneous(Cog):
             scopes=['bot', 'applications.commands'],
         )
 
-        view = discord.ui.View()
-        view.add_item(discord.ui.Button(label='Invite me to your server!', url=link))
-        view.add_item(discord.ui.Button(label='Join our offical Discord server!', url=support_server))
-        view.add_item(discord.ui.Button(label='Visit our website!', url=website))
-        view.add_item(discord.ui.Button(
+        view = ui.View()
+        view.add_item(ui.Button(label='Invite me to your server!', url=link))
+        view.add_item(ui.Button(label='Join our offical Discord server!', url=support_server))
+        view.add_item(ui.Button(label='Visit our website!', url=website))
+        view.add_item(ui.Button(
             label='Vote for Coined to earn free crates!', url=f'https://top.gg/bot/{ctx.bot.user.id}',
         ))
 
@@ -225,7 +285,7 @@ class Miscellaneous(Cog):
 
         item = Items.epic_crate if is_weekend else Items.voting_crate
         view = UserView(ctx.author)
-        view.add_item(discord.ui.Button(
+        view.add_item(ui.Button(
             label=f'Vote for Coined to earn {item.singular} {item.name}',
             url=f'https://top.gg/bot/{ctx.bot.user.id}/vote',
             emoji=item.emoji,
@@ -247,13 +307,13 @@ class Miscellaneous(Cog):
                     inline=True,
                 )
                 if reminder := self._vote_reminder_exists.get(ctx.author.id):
-                    button = discord.ui.Button(
+                    button = ui.Button(
                         label='Vote reminder active!',
                         emoji='\N{ALARM CLOCK}',
                         url=reminder.jump_url,
                     )
                 else:
-                    button = discord.ui.Button(
+                    button = ui.Button(
                         label='Remind me when I can vote again',
                         emoji='\N{ALARM CLOCK}',
                         style=discord.ButtonStyle.primary,
@@ -314,12 +374,12 @@ class Miscellaneous(Cog):
         channel = self.bot.get_partial_messageable(timer.metadata['channel_id'])
         self._vote_reminder_exists.pop(user_id, None)
 
-        view = discord.ui.View()
-        view.add_item(discord.ui.Button(
+        view = ui.View()
+        view.add_item(ui.Button(
             label='Vote for Coined',
             url=f'https://top.gg/bot/{self.bot.user.id}/vote',
         ))
-        view.add_item(discord.ui.Button(label='Jump to Context', url=timer.metadata['jump_url']))
+        view.add_item(ui.Button(label='Jump to Context', url=timer.metadata['jump_url']))
 
         await channel.send(
             f'Hey <@{user_id}>, you can vote again!',
@@ -327,36 +387,14 @@ class Miscellaneous(Cog):
             view=view,
         )
 
-    @staticmethod
-    async def _send_settings(ctx: Context):
-        record = await ctx.db.get_user_record(ctx.author.id)
-
-        fields = []
-        for setting in walk_collection(Settings, Setting):
-            try:
-                value = record.data[setting.key]
-            except KeyError:
-                continue
-
-            readable = f'{Emojis.enabled} Enabled' if value else f'{Emojis.disabled} Disabled'
-
-            fields.append({
-                'name': f'**{setting.name}** - {readable}',
-                'value': f'{setting.description}\n\nToggle using `{ctx.prefix}settings {setting.key} <enabled/disabled>`',
-                'inline': False,
-            })
-
-        embed = discord.Embed(color=Colors.primary, timestamp=ctx.now)
-        embed.set_author(name=f'Settings for {ctx.author.name}', icon_url=ctx.author.display_avatar)
-
-        return Paginator(ctx, FieldBasedFormatter(embed, fields)), REPLY
-
-    @group(aliases={'setting', 'set', 'config', 'conf'}, hybrid=True, fallback='set', expand_subcommands=True)  # TODO: add autocomplete
+    @group(aliases={'setting', 'set', 'config', 'conf', 'cfg'}, hybrid=True, expand_subcommands=True)
     @simple_cooldown(2, 2)
     async def settings(self, ctx: Context, setting: query_setting = None, value: better_bool = None):
         """View your current settings and/or change them."""
         if setting is None:
-            return await self._send_settings(ctx)
+            view = SettingsView(ctx, await ctx.db.get_user_record(ctx.author.id))
+            view.container.update(view.container.get_page_entries())
+            return view, REPLY
 
         record = await ctx.db.get_user_record(ctx.author.id)
 
@@ -370,6 +408,21 @@ class Miscellaneous(Cog):
             return f'{setting.name} is currently **{readable}**.', REPLY
 
         await setting.set(ctx, value)
+
+    @settings.app_command.command(name='view')
+    async def settings_app_command(self, ctx: HybridContext) -> None:
+        """View and modify your current user settings."""
+        await ctx.invoke(ctx.command, setting=None, value=None)  # type: ignore
+
+    @settings.app_command.command(name='set')
+    @app_commands.describe(setting='The setting to change', value='The new value for the setting')
+    @app_commands.choices(setting=[
+        app_commands.Choice(name=setting.name, value=setting.key) for setting in walk_collection(Settings, Setting)
+    ])
+    async def settings_set(self, ctx: HybridContext, setting: str, value: bool) -> None:
+        """Change a specific setting to a new value."""
+        setting = get_by_key(Settings, setting)
+        await ctx.invoke(self.settings, setting=setting, value=value)  # type: ignore
 
     MENTION_REGEX: re.Pattern[str] = re.compile(r'<@!?\d+>')
 
@@ -692,14 +745,14 @@ class CooldownReminderOptions(UserView):
         if record.channel_id == ctx.channel.id:
             self.remove_item(self.move)
 
-        self.add_item(discord.ui.Button(
+        self.add_item(ui.Button(
             label='Jump to context',
             style=discord.ButtonStyle.link,
             url=record.jump_url,
         ))
 
-    @discord.ui.button(label='Move reminder to this channel', style=discord.ButtonStyle.primary, emoji='\U0001f4e5')
-    async def move(self, interaction: TypedInteraction, _: discord.ui.Button) -> None:
+    @ui.button(label='Move reminder to this channel', style=discord.ButtonStyle.primary, emoji='\U0001f4e5')
+    async def move(self, interaction: TypedInteraction, _: ui.Button) -> None:
         query = "UPDATE timers SET metadata = jsonb_set(metadata, '{channel_id}', to_jsonb($1::TEXT)) WHERE id = $2"
         await self.ctx.db.execute(query, str(self.ctx.channel.id), self.record.timer_id)
         # horrible boilerplate
@@ -711,8 +764,8 @@ class CooldownReminderOptions(UserView):
             view=None,
         )
 
-    @discord.ui.button(label='Cancel reminder', style=discord.ButtonStyle.danger, emoji='\U0001f5d1')
-    async def cancel(self, interaction: TypedInteraction, _: discord.ui.Button) -> None:
+    @ui.button(label='Cancel reminder', style=discord.ButtonStyle.danger, emoji='\U0001f5d1')
+    async def cancel(self, interaction: TypedInteraction, _: ui.Button) -> None:
         await self.ctx.bot.timers.end_timer(
             timer=await self.ctx.bot.timers.get_timer(self.record.timer_id),
             dispatch=False,

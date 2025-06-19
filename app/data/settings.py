@@ -18,8 +18,7 @@ class Setting(NamedTuple):
         await record.update(**{self.key: value})
 
         new = f'{Emojis.enabled} Enabled' if value else f'{Emojis.disabled} Disabled'
-
-        await ctx.send(f'Setting **{self.name}** set to **{new}**.', reference=ctx.message)
+        await ctx.send(f'Setting **{self.name}** set to **{new}**.', reference=ctx.message, ephemeral=True)
         await ctx.thumbs()
 
 
@@ -42,4 +41,10 @@ class Settings:
         key='hide_partnerships',
         name='Hide Partnerships',
         description='When enabled, you will no longer see server partnerships/advertisements.'
+    )
+
+    hide_tips = Setting(
+        key='hide_tips',
+        name='Hide Tips',
+        description='When enabled, you will no longer see occasional tips in the bot\'s messages.'
     )

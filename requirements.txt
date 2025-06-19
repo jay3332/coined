@@ -1,14 +1,14 @@
 # git+https://github.com/Rapptz/discord.py
-discord.py @ git+https://github.com/DA-344/d.py@8e03c3a740af31ad0158f48ebc25b366ae9a97dc
+discord.py @ git+https://github.com/DA-344/d.py@42bd21a7008ebce2de644b8941ece0c4468eeb2a
 git+https://github.com/Gorialis/jishaku
 asyncpg
 tabulate
 psutil
-requests  # Temporary due to SSL error with aiohttp
 python-dotenv
 matplotlib
 scipy
 numpy
+ormsgpack
 Pillow
 better_exceptions
 # Webserver dependencies (should move to separate microprocess)

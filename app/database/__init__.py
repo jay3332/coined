@@ -2195,6 +2195,10 @@ class UserRecord(BaseRecord):
         return self.data['hide_partnerships']
 
     @property
+    def hide_tips(self) -> bool:
+        return self.data['hide_tips']
+
+    @property
     def max_equipped_pets(self) -> int:
         return self.data['max_equipped_pets']
 

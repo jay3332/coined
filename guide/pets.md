@@ -16,5 +16,5 @@ For a guide on how to hunt, see the guide by clicking on *How do I hunt?* at the
   - See *Equipping Pets* to learn more about equipping pets.
   - See *Feeding Pets* to learn more about the feeding your pets.
 
-**TL;DR:** {{/hunt}} for pets (*How do I hunt?*), equip them (*Equipping Pets*), then {{/feed}} them (*Feeding Pets*) \
-to activate their boosts.
+**TL;DR:** {{/hunt}} for pets (*How do I hunt?*), {{/pets equip}} them (*Equipping Pets*), then {{/pets feed}} \
+them (*Feeding Pets*) to activate their boosts.

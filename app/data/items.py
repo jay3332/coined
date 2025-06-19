@@ -900,6 +900,133 @@ class Items:
         volume=3,
     )
 
+    # Desert Biome
+
+    sand = Item(
+        type=ItemType.dirt,
+        key='sand',
+        name='Sand',
+        emoji='<:sand:1379633068670714007>',
+        description='A chunk of sand that was dug up from the desert.',
+        sell=20,
+        hp=10,
+    )
+
+    sand_clay = Item(
+        type=ItemType.dirt,
+        key='sand_clay',
+        name='Sand Clay',
+        emoji='<:sand_clay:1379633089654948010>',
+        description='If there was clay in the dirt, why cant there be clay in the sand?',
+        sell=40,
+        hp=20,
+    )
+
+    sandstone = Item(
+        type=ItemType.dirt,
+        key='sandstone',
+        name='Sandstone',
+        emoji='<:sandstone:1379633106419712071>',
+        description='A hard rock made from compressed sand.',
+        rarity=ItemRarity.uncommon,
+        sell=60,
+        hp=30,
+    )
+
+    fossil_rock = Item(
+        type=ItemType.dirt,
+        key='fossil_rock',
+        name='Fossil Rock',
+        emoji='<:fossil_rock:1379633583865598012>',
+        description='These rocks contain remains of ancient creatures.',
+        rarity=ItemRarity.rare,
+        sell=150,
+        hp=40,
+    )
+
+    quartzite = Item(
+        type=ItemType.dirt,
+        key='quartzite',
+        name='Quartzite',
+        emoji='<:quartzite:1379634317608620152>',
+        description='These chunks of quartz are rather hard to dig through...',
+        rarity=ItemRarity.epic,
+        sell=300,
+        hp=50,
+    )
+
+    sunstone = Item(
+        type=ItemType.dirt,
+        key='sunstone',
+        name='Sunstone',
+        emoji='<:sunstone:1379634338945306734>',
+        description=(
+            'A super rare stone that has the bleaming glow of the sun. This is the deepest layer of the desert biome.'
+        ),
+        rarity=ItemRarity.legendary,
+        sell=500,
+        hp=75,
+    )
+
+    dust_mite = Item(
+        type=ItemType.miscellaneous,
+        key='dust_mte',
+        name='Dust Mite',
+        emoji='<:dust_mite:1384399956772786256>',
+        description='A tiny, microscopic creature that lives in dust. Who wants these anyways?',
+        sell=200,
+        rarity=ItemRarity.common,
+        energy=2,
+        hp=7,
+    )
+
+    cactus_worm = Item(
+        type=ItemType.worm,
+        key='cactus_worm',
+        name='Cactus Worm',
+        emoji='<:cactus_worm:1384396033034948658>',
+        description='Prickly worms that sort of look like cacti.',
+        sell=400,
+        rarity=ItemRarity.common,
+        energy=6,
+        hp=20,
+    )
+
+    cricket = Item(
+        type=ItemType.miscellaneous,
+        key='cricket',
+        name='Cricket',
+        emoji='<:cricket:1384398130275029066>',
+        description='These are the insects that chirp at night. They are commonly found in the desert biome.',
+        sell=600,
+        rarity=ItemRarity.uncommon,
+        energy=12,
+        hp=30,
+    )
+
+    beetle = Item(
+        type=ItemType.miscellaneous,
+        key='beetle',
+        name='Beetle',
+        emoji='<:beetle:1384398654093135973>',
+        description='Not just your average beetle. These beetles pack lots of energy for their size.',
+        sell=800,
+        rarity=ItemRarity.uncommon,
+        energy=18,
+        hp=36,
+    )
+
+    fossil = Item(
+        type=ItemType.collectible,
+        key='fossil',
+        name='Fossil',
+        emoji='<:fossil:1384398142979702794>',
+        description='A fossil of probably some ancient creature. Usually found in fossil rock.',
+        sell=5000,
+        rarity=ItemRarity.epic,
+        hp=54,
+    )
+
     shovel: Item[ToolMetadata] = Item(
         type=ItemType.tool,
         key='shovel',
@@ -1396,6 +1523,18 @@ class Items:
         rarity=ItemRarity.epic,
         sell=2000,
         hp=12,
+        volume=2,
+    )
+
+    ruby = Ore(
+        key='ruby',
+        name='Ruby',
+        plural='Ruby',
+        emoji='<:ruby:1384399664987635752>',
+        description='They say these are just red diamonds...',
+        rarity=ItemRarity.epic,
+        sell=3000,
+        hp=15,
         volume=2,
     )
 

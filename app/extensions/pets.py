@@ -33,7 +33,7 @@ from app.util.common import (
     weighted_choice,
 )
 from app.util.converters import get_amount, try_query_item
-from app.util.pagination import LineBasedFormatter, Paginator
+from app.util.pagination import NavigableItem, NavigationRow
 from app.util.views import StaticCommandButton, UserView
 from config import Colors, Emojis
 
@@ -447,10 +447,10 @@ class PetsCog(Cog, name='Pets'):
         ctx.bot.loop.create_task(ctx.thumbs())
         return f'Swapped your **{to_unequip.display}** with your **{to_equip.display}**.\n{swaps}', REPLY
 
-    @command(aliases={'fe'}, hybrid=True)
+    @pets.command(name='feed', aliases={'fe'}, hybrid=True)
     @app_commands.describe(pet='The pet to feed.')
     @simple_cooldown(1, 10)
-    async def feed(self, ctx: Context, *, pet: query_pet = None) -> CommandResponse:
+    async def pets_feed(self, ctx: Context, *, pet: query_pet = None) -> CommandResponse:
         """Feed a pet food to give it energy."""
         record = await ctx.db.get_user_record(ctx.author.id)
         await record.inventory_manager.wait()
@@ -475,12 +475,16 @@ class PetsCog(Cog, name='Pets'):
     @pets_unequip.autocomplete('pet')
     @pets_swap.autocomplete('to_unequip')
     @pets_swap.autocomplete('to_equip')
-    @feed.autocomplete('pet')
+    @pets_feed.autocomplete('pet')
     async def autocomplete_pet(self, _interaction: TypedInteraction, current: str):
         return [
             app_commands.Choice(name=pet.name, value=pet.key)
             for pet in query_collection_many(Pets, Pet, current)
         ]
+
+    @command('feed', alias='fe', hidden=True)
+    async def _legacy_feed(self, ctx: Context) -> CommandResponse:
+        return f'This command hash moved to `{ctx.clean_prefix}pets feed`.', BAD_ARGUMENT
 
 
 def _format_level_data(record: PetRecord) -> str:
@@ -665,7 +669,7 @@ class ActivePetsContainer(ui.Container):
         equipped = (pet for pet in self.pets.cached.values() if pet.equipped)
         for i, record in enumerate(sorted(equipped, key=lambda entry: entry.pet.rarity.value, reverse=True)):
             self.add_item(ui.Separator(
-                spacing=discord.SeparatorSize.large if i == 0 else discord.SeparatorSize.small,
+                spacing=discord.SeparatorSpacing.large if i == 0 else discord.SeparatorSpacing.small,
             ))
             self.add_item(ui.TextDisplay(
                 record.pet.jumbo_display(
@@ -691,7 +695,7 @@ class ActivePetsContainer(ui.Container):
                 )
             ).add_item(UnequipButton(self.ctx, record, self)))
 
-        self.add_item(ui.Separator(spacing=discord.SeparatorSize.large))
+        self.add_item(ui.Separator(spacing=discord.SeparatorSpacing.large))
         self.add_item(
             ui.ActionRow().add_item(
                 StaticCommandButton(command=self.ctx.bot.get_command('pets all'), label='View All Pets')
@@ -1118,109 +1122,6 @@ class FeedView(UserView):
         await interaction.response.send_modal(FeedCustomModal(self))
 
 
-from abc import ABC, abstractmethod  # TODO: migrate this to paginators
-
-
-class NavigableItem(ABC):
-    # Note: pages are zero-indexed, but max-pages is normal
-
-    @property
-    @abstractmethod
-    def max_pages(self) -> int:
-        """The maximum number of pages this item can have."""
-        raise NotImplementedError
-
-    @property
-    @abstractmethod
-    def current_page(self) -> int:
-        """The current page of this item."""
-        raise NotImplementedError
-
-    @abstractmethod
-    async def set_page(self, interaction: TypedInteraction, page: int) -> Any:
-        """Set the current page of this item."""
-        raise NotImplementedError
-
-
-class JumpToPageModal(ui.Modal):
-    page = ui.TextInput(
-        label='Page Number',
-        placeholder='...',
-        min_length=1,
-        max_length=4,
-        required=True,
-        style=discord.TextStyle.short,
-    )
-
-    def __init__(self, row: NavigationRow) -> None:
-        super().__init__(title='Jump to Page')
-        self.row: NavigationRow = row
-        self.target: NavigableItem = row.target
-        self.update()
-
-    def update(self) -> None:
-        self.page.placeholder = f'Enter the page you want to jump to (1-{self.target.max_pages})'
-
-    async def on_submit(self, interaction: TypedInteraction, /) -> Any:
-        try:
-            page = int(self.page.value) - 1  # Convert to zero-indexed
-        except ValueError:
-            return await interaction.response.send_message(
-                'Invalid page number. Please enter a valid integer.', ephemeral=True,
-            )
-
-        if not (0 <= page < self.target.max_pages):
-            return await interaction.response.send_message(
-                f'Page number must be between 1 and {self.target.max_pages}.', ephemeral=True,
-            )
-
-        await self.target.set_page(interaction, page)
-
-
-class NavigationRow(ui.ActionRow):
-    def __init__(self, target: NavigableItem) -> None:
-        super().__init__()
-        self.target: NavigableItem = target
-
-    def update(self) -> None:
-        self.clear_items()
-        need_ff = self.target.max_pages > 3  # Good enough threshold?
-
-        if need_ff:
-            self.add_item(self.first)
-            self.first.disabled = self.target.current_page == 0
-
-        self.previous.disabled = self.target.current_page == 0
-        self.next.disabled = self.target.current_page == self.target.max_pages - 1
-        self.jump.label = f'{self.target.current_page + 1}/{self.target.max_pages}'
-        self.add_item(self.previous).add_item(self.jump).add_item(self.next)
-
-        if need_ff:
-            self.add_item(self.last)
-            self.last.disabled = self.target.current_page == self.target.max_pages - 1
-
-    @ui.button(emoji=Emojis.Arrows.first)
-    async def first(self, interaction: TypedInteraction, _) -> None:
-        await self.target.set_page(interaction, 0)
-
-    @ui.button(emoji=Emojis.Arrows.previous)
-    async def previous(self, interaction: TypedInteraction, _) -> None:
-        await self.target.set_page(interaction, max(0, self.target.current_page - 1))
-
-    @ui.button(style=discord.ButtonStyle.primary)
-    async def jump(self, interaction: TypedInteraction, _) -> None:
-        modal = JumpToPageModal(self)
-        await interaction.response.send_modal(modal)
-
-    @ui.button(emoji=Emojis.Arrows.forward)
-    async def next(self, interaction: TypedInteraction, _) -> None:
-        await self.target.set_page(interaction, min(self.target.max_pages - 1, self.target.current_page + 1))
-
-    @ui.button(emoji=Emojis.Arrows.last)
-    async def last(self, interaction: TypedInteraction, _) -> None:
-        await self.target.set_page(interaction, self.target.max_pages - 1)
-
-
 class PetsAllContainer(ui.Container, NavigableItem):
     PER_PAGE: int = 6
     PETS_COUNT: int = sum(1 for _ in walk_collection(Pets, Pet))
@@ -1275,7 +1176,7 @@ class PetsAllContainer(ui.Container, NavigableItem):
 
         for i, entry in enumerate(pets):
             self.add_item(ui.Separator(
-                spacing=discord.SeparatorSize.large if i == 0 else discord.SeparatorSize.small,
+                spacing=discord.SeparatorSpacing.large if i == 0 else discord.SeparatorSpacing.small,
                 visible=i == 0,
             ))
             s = '' if entry.duplicates == 1 else 's'
@@ -1297,7 +1198,7 @@ class PetsAllContainer(ui.Container, NavigableItem):
 
         if self.max_pages > 1:
             self._nav.update()
-            self.add_item(ui.Separator(spacing=discord.SeparatorSize.large)).add_item(self._nav)
+            self.add_item(ui.Separator(spacing=discord.SeparatorSpacing.large)).add_item(self._nav)
 
 
 class PetsAllLayout(ui.LayoutView):

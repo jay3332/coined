@@ -14,7 +14,7 @@ The button to dig or mine is located in the third section.
 
 ## As you progress...
 
-- **You can upgrade your backpack.** Use the {{/backpack}} command to view and manage your backpacks. \
+- **You can upgrade your backpack.** Use the {{/backpacks}} command to view and manage your backpacks. \
 You can upgrade to better backpacks with greater capacities!
 - **Craft and discover better tools.** The {{/craft}} command can be used to craft a variety of items in Coined, \
 including stronger shovels and pickaxes that deal more HP to blocks! See *Crafting Items* for more information on \

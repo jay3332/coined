@@ -95,14 +95,14 @@ class Biomes:
                 depth=0,
                 items={
                     None: 2,
-                    # pickaxe-based:
+                    # shovel-based:
                     Items.worm: 0.25,
                     Items.gummy_worm: 0.08,
                     Items.earthworm: 0.03,
                     Items.hook_worm: 0.0075,
                     Items.poly_worm: 0.0025,
                     Items.ancient_relic: 0.00005,  # 0.005%
-                    # shovel-based:
+                    # pickaxe-based:
                     Items.iron: 0.5,
                     Items.copper: 0.17,
                     Items.silver: 0.075,
@@ -119,14 +119,14 @@ class Biomes:
                 depth=20,
                 items={
                     None: 1.8,
-                    # pickaxe-based:
+                    # shovel-based:
                     Items.worm: 0.3,
                     Items.gummy_worm: 0.2,
                     Items.earthworm: 0.07,
                     Items.hook_worm: 0.02,
                     Items.poly_worm: 0.007,
                     Items.ancient_relic: 0.0001,  # 0.01%
-                    # shovel-based:
+                    # pickaxe-based:
                     Items.iron: 0.5,
                     Items.copper: 0.25,
                     Items.silver: 0.1,
@@ -143,14 +143,14 @@ class Biomes:
                 depth=40,
                 items={
                     None: 1.5,
-                    # pickaxe-based:
+                    # shovel-based:
                     Items.worm: 0.4,
                     Items.gummy_worm: 0.3,
                     Items.earthworm: 0.15,
                     Items.hook_worm: 0.05,
                     Items.poly_worm: 0.02,
                     Items.ancient_relic: 0.0004,  # 0.04%
-                    # shovel-based:
+                    # pickaxe-based:
                     Items.iron: 0.5,
                     Items.copper: 0.3,
                     Items.silver: 0.15,
@@ -167,14 +167,14 @@ class Biomes:
                 depth=60,
                 items={
                     None: 1.2,
-                    # pickaxe-based:
+                    # shovel-based:
                     Items.worm: 0.3,
                     Items.gummy_worm: 0.3,
                     Items.earthworm: 0.25,
                     Items.hook_worm: 0.08,
                     Items.poly_worm: 0.04,
                     Items.ancient_relic: 0.001,  # 0.1%
-                    # shovel-based:
+                    # pickaxe-based:
                     Items.iron: 0.5,
                     Items.copper: 0.4,
                     Items.silver: 0.25,
@@ -191,14 +191,14 @@ class Biomes:
                 depth=80,
                 items={
                     None: 1.0,
-                    # pickaxe-based:
+                    # shovel-based:
                     Items.worm: 0.3,
                     Items.gummy_worm: 0.3,
                     Items.earthworm: 0.3,
                     Items.hook_worm: 0.10,
                     Items.poly_worm: 0.06,
                     Items.ancient_relic: 0.003,  # 0.3%
-                    # shovel-based:
+                    # pickaxe-based:
                     Items.iron: 0.5,
                     Items.copper: 0.5,
                     Items.silver: 0.4,
@@ -216,14 +216,14 @@ class Biomes:
                 depth=100,
                 items={
                     None: 0.8,
-                    # pickaxe-based:
+                    # shovel-based:
                     Items.worm: 0.3,
                     Items.gummy_worm: 0.3,
                     Items.earthworm: 0.3,
                     Items.hook_worm: 0.2,
                     Items.poly_worm: 0.1,
                     Items.ancient_relic: 0.006,  # 0.6%
-                    # shovel-based:
+                    # pickaxe-based:
                     Items.iron: 0.5,
                     Items.copper: 0.5,
                     Items.silver: 0.4,
@@ -240,37 +240,169 @@ class Biomes:
         ]
     )
 
-    # desert = Biome(
-    #     key='desert',
-    #     name='Desert',
-    #     description='Hot and dry but full of treasures',
-    #     unlock_requirements=UnlockRequirements(level=10, price=500_000),
-    #     entry_price=1_000,
-    #     backdrop_path='assets/digging/backdrops/desert.png',
-    #     layers=[
-    #         Layer(
-    #             depth=0,
-    #             items={
-    #                 None: 1.8,
-    #                 # pickaxe-based:
-    #                 Items.worm: 0.3,
-    #                 Items.gummy_worm: 0.2,
-    #                 Items.earthworm: 0.07,
-    #                 Items.hook_worm: 0.02,
-    #                 Items.poly_worm: 0.007,
-    #                 Items.ancient_relic: 0.0001,  # 0.01%
-    #                 # shovel-based:
-    #                 Items.iron: 0.5,
-    #                 Items.copper: 0.25,
-    #                 Items.silver: 0.1,
-    #                 Items.gold: 0.03,
-    #                 Items.obsidian: 0.0075,
-    #                 Items.emerald: 0.003,
-    #                 Items.diamond: 0.00075,
-    #             },
-    #         ),
-    #         Layer(),
-    #         Layer(),
-    #     ],
-    #     ore_hp_multiplier=3,
-    # )
+    desert = Biome(
+        key='desert',
+        name='Desert',
+        description='Hot and dry but full of treasures',
+        unlock_requirements=UnlockRequirements(level=10, price=500_000),
+        entry_price=1_000,
+        backdrop_path='assets/digging/backdrops/desert.png',
+        layers=[
+            Layer(
+                depth=0,
+                items={
+                    None: 1.2,
+                    # shovel-based:
+                    Items.dust_mite: 0.25,
+                    Items.cactus_worm: 0.08,
+                    Items.cricket: 0.03,
+                    Items.beetle: 0.01,
+                    Items.ancient_relic: 0.005,
+                    Items.fossil: 0.005,
+                    # pickaxe-based:
+                    Items.iron: 0.5,
+                    Items.copper: 0.5,
+                    Items.silver: 0.4,
+                    Items.gold: 0.3,
+                    Items.obsidian: 0.1,
+                    Items.emerald: 0.04,
+                    Items.ruby: 0.04,
+                    Items.diamond: 0.02,
+                },
+                dirt=Items.sand,
+                dirt_color=(241, 193, 107),
+                grain_color=(231, 172, 71),
+            ),
+            Layer(
+                depth=20,
+                items={
+                    None: 1.0,
+                    # shovel-based:
+                    Items.dust_mite: 0.3,
+                    Items.cactus_worm: 0.15,
+                    Items.cricket: 0.07,
+                    Items.beetle: 0.03,
+                    Items.fossil: 0.02,
+                    Items.ancient_relic: 0.01,
+                    # pickaxe-based:
+                    Items.iron: 0.5,
+                    Items.copper: 0.5,
+                    Items.silver: 0.4,
+                    Items.gold: 0.4,
+                    Items.obsidian: 0.2,
+                    Items.emerald: 0.1,
+                    Items.ruby: 0.1,
+                    Items.diamond: 0.05,
+                },
+                dirt=Items.sand_clay,
+                dirt_color=(219, 155, 43),
+                grain_color=(141, 96, 18),
+                grain_density=9,
+            ),
+            Layer(
+                depth=40,
+                items={
+                    None: 0.8,
+                    # shovel-based:
+                    Items.dust_mite: 0.4,
+                    Items.cactus_worm: 0.3,
+                    Items.cricket: 0.15,
+                    Items.beetle: 0.05,
+                    Items.fossil: 0.03,
+                    Items.ancient_relic: 0.02,
+                    # pickaxe-based:
+                    Items.iron: 0.5,
+                    Items.copper: 0.5,
+                    Items.silver: 0.5,
+                    Items.gold: 0.5,
+                    Items.obsidian: 0.3,
+                    Items.emerald: 0.2,
+                    Items.ruby: 0.2,
+                    Items.diamond: 0.1,
+                },
+                dirt=Items.sandstone,
+                dirt_color=(252, 172, 0),
+                grain_color={(255, 143, 0): 3, (166, 93, 0): 2},
+                grain_density=8,
+            ),
+            Layer(
+                depth=60,
+                items={
+                    None: 0.6,
+                    # shovel-based:
+                    Items.dust_mite: 0.5,
+                    Items.cactus_worm: 0.4,
+                    Items.cricket: 0.25,
+                    Items.beetle: 0.1,
+                    Items.fossil: 0.05,
+                    Items.ancient_relic: 0.03,
+                    # pickaxe-based:
+                    Items.iron: 0.5,
+                    Items.copper: 0.5,
+                    Items.silver: 0.5,
+                    Items.gold: 0.6,
+                    Items.obsidian: 0.4,
+                    Items.emerald: 0.3,
+                    Items.ruby: 0.3,
+                    Items.diamond: 0.15,
+                },
+                dirt=Items.fossil_rock,
+                dirt_color=(215, 188, 142),
+                grain_color=[(137, 120, 91), (228, 232, 173)],
+                grain_density=10,
+            ),
+            Layer(
+                depth=80,
+                items={
+                    None: 0.4,
+                    # shovel-based:
+                    Items.dust_mite: 0.5,
+                    Items.cactus_worm: 0.5,
+                    Items.cricket: 0.4,
+                    Items.beetle: 0.2,
+                    Items.fossil: 0.1,
+                    Items.ancient_relic: 0.05,
+                    # pickaxe-based:
+                    Items.iron: 0.5,
+                    Items.copper: 0.5,
+                    Items.silver: 0.6,
+                    Items.gold: 0.7,
+                    Items.obsidian: 0.5,
+                    Items.emerald: 0.4,
+                    Items.ruby: 0.4,
+                    Items.diamond: 0.2,
+                },
+                dirt=Items.quartzite,
+                dirt_color=(243, 222, 186),
+                grain_color=(255, 255, 255),
+                grain_density=8,
+            ),
+            Layer(
+                depth=100,
+                items={
+                    None: 0.2,
+                    # shovel-based:
+                    Items.dust_mite: 0.5,
+                    Items.cactus_worm: 0.5,
+                    Items.cricket: 0.5,
+                    Items.beetle: 0.3,
+                    Items.fossil: 0.2,
+                    Items.ancient_relic: 0.1,
+                    # pickaxe-based:
+                    Items.iron: 0.5,
+                    Items.copper: 0.5,
+                    Items.silver: 0.7,
+                    Items.gold: 0.8,
+                    Items.obsidian: 0.6,
+                    Items.emerald: 0.5,
+                    Items.ruby: 0.5,
+                    Items.diamond: 0.3,
+                },
+                dirt=Items.sunstone,
+                dirt_color=(242, 108, 37),
+                grain_color={(255, 200, 0): 2, (255, 252, 93): 2, (175, 82, 9): 1},
+                grain_density=10,
+            ),
+        ],
+        ore_hp_multiplier=3,
+    )

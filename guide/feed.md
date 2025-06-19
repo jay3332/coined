@@ -3,7 +3,7 @@
 ## Overview
 
 Pets must also be **fed** in order for their boosts/abilities/attacks to activate.
-- Feed pets by running {{/feed}}, which brings an interactive feeding menu.
+- Feed pets by running {{/pets feed}}, which brings an interactive feeding menu.
   - Again, this command is interactive–it "guides" you through the feeding process.
 - Pets must be *equipped* first in order to feed them.
 - You can feed pets with a subset of food-like items in your inventory.

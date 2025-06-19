@@ -28,7 +28,7 @@ from app.database import Database
 from app.util.structures import LockWithReason
 from config import (
     DatabaseConfig, allowed_mentions, backups_channel, beta, default_prefix,
-    description, ipc_secret, name, owner, token, version,
+    description, disable_app_commands, ipc_secret, name, owner, token, version,
 )
 
 if TYPE_CHECKING:
@@ -216,6 +216,10 @@ class Tree(app_commands.CommandTree):
         res = await super().sync(guild=guild)
         await self._update_cache(res, guild=guild)
         return res
+
+    async def _call(self, interaction):
+        if not disable_app_commands:
+            await super()._call(interaction)
 
 
 class Bot(commands.Bot):

@@ -178,7 +178,7 @@ async def process_message(ctx: Context, payload: Any) -> discord.Message | None:
                 f"Run {notifications_mention} to view them."
             )
 
-        if random.random() < 0.2:
+        if not record.hide_tips and random.random() < 0.2:
             tip = random.choice(TIPS)
             kwargs.setdefault('content', '')
             kwargs['content'] += f'\n\U0001f4a1 **Tip:** {format_line(ctx, tip)}'

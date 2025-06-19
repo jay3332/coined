@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import datetime
+import math
 import random
 from collections import defaultdict, deque
 from datetime import timedelta
@@ -21,10 +22,12 @@ from app.core import (
     Context,
     EDIT,
     HybridContext,
-    NO_EXTRA, REPLY,
+    NO_EXTRA,
+    REPLY,
     command,
     database_cooldown,
-    group, lock_transactions,
+    group,
+    lock_transactions,
     simple_cooldown,
     user_max_concurrency
 )
@@ -39,7 +42,8 @@ from app.features.battles import PvEBattleView
 from app.features.digging import DiggingView
 from app.features.wheel import WheelView
 from app.util.common import (
-    cutoff, expansion_list,
+    cutoff,
+    expansion_list,
     humanize_list,
     image_url_from_emoji,
     next_weekday_utc_midnight,
@@ -47,6 +51,7 @@ from app.util.common import (
     weighted_choice,
 )
 from app.util.converters import CaseInsensitiveMemberConverter, Investment
+from app.util.pagination import NavigableItem, NavigationRow
 from app.util.structures import LockWithReason
 from app.util.views import AnyUser, StaticCommandButton, UserLayoutView, UserView
 from config import Colors, Emojis
@@ -969,6 +974,17 @@ class Profit(Cog):
             record = view.session.record
             await record.add_exp(view.session.xp_earned, ctx=ctx, connection=conn)
             await record.add_bank_space(view.session.bank_space_earned, connection=conn)
+
+    # @command()
+    # async def clammerzdih(self, ctx: Context) -> CommandResponse:
+    #     """Dig up items from the ground and sell them for profit!"""
+    #     from app.features.digging import RawDiggingState
+    #
+    #     data = RawDiggingState.from_bytes(await ctx.message.reference.resolved.attachments[0].read())
+    #     view = DiggingView(ctx, session=await DiggingSession.from_dict(ctx, data=data))
+    #     await view.prepare()
+    #     yield await view.session.generate_image(), view, REPLY, NO_EXTRA
+    #     await view.wait()
 
     ABUNDANCE_FOREST_WOOD_CHANCES = {
         None: 1,
@@ -2357,7 +2373,7 @@ class QuestsContainer(discord.ui.Container['QuestsView']):
             f'-# You have {quest_rerolls_remaining} quest reroll{s} remaining.\n'
             f'-# {Emojis.Expansion.standalone} Quest rerolls replenish {format_dt(next_weekday_utc_midnight(weekday=0), "R")}',
         ))
-        self.add_item(discord.ui.Separator(spacing=discord.SeparatorSize.large))
+        self.add_item(discord.ui.Separator(spacing=discord.SeparatorSpacing.large))
 
         quests = await self.quests.refresh_slots()
         if self.showing_daily_quests:
@@ -2398,7 +2414,7 @@ class QuestsContainer(discord.ui.Container['QuestsView']):
 
         self.nav.update()
         self.add_item(discord.ui.Separator(visible=False)).add_item(self.nav)
-        self.add_item(discord.ui.Separator(spacing=discord.SeparatorSize.large))
+        self.add_item(discord.ui.Separator(spacing=discord.SeparatorSpacing.large))
 
         tier, n, d = self.view.record.quest_pass_tier_data
         self.add_item(discord.ui.Section(
@@ -2425,10 +2441,6 @@ class QuestsView(UserLayoutView):
 
     async def update(self) -> None:
         await self._container.update()
-
-
-import math
-from app.extensions.pets import NavigableItem, NavigationRow  # TODO put into its own place
 
 
 class QuestPassContainer(discord.ui.Container['QuestPassView'], NavigableItem):
@@ -2466,7 +2478,7 @@ class QuestPassContainer(discord.ui.Container['QuestPassView'], NavigableItem):
     async def update(self) -> None:
         self.clear_items()
 
-        large_sep = lambda: discord.ui.Separator(spacing=discord.SeparatorSize.large)
+        large_sep = lambda: discord.ui.Separator(spacing=discord.SeparatorSpacing.large)
         self.add_item(discord.ui.TextDisplay(
             f'### {self.ctx.author.name}\'s Quest Pass\n'
             f'-# You have a total of {Emojis.ticket} **{self.record.tickets:,}**\n'

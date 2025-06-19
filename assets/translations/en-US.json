@@ -58,17 +58,27 @@
       "name": "settings",
       "description": "View your current settings and/or change them."
     },
+    "settings_view": {
+      "name": "view",
+      "description": "View and modify your current user settings."
+    },
     "settings_set": {
       "name": "set",
-      "description": "View your current settings and/or change them.",
+      "description": "Change a specific setting to a new value.",
       "options": {
         "setting": {
           "name": "setting",
-          "description": "\u2026"
+          "description": "The setting to change",
+          "choices": {
+            "anonymous_mode": "Anonymous Mode",
+            "dm_notifications": "DM Notifications",
+            "hide_partnerships": "Hide Partnerships",
+            "hide_tips": "Hide Tips"
+          }
         },
         "value": {
           "name": "value",
-          "description": "\u2026"
+          "description": "The new value for the setting"
         }
       }
     },
@@ -616,7 +626,7 @@
         }
       }
     },
-    "feed": {
+    "pets_feed": {
       "name": "feed",
       "description": "Feed a pet food to give it energy.",
       "options": {
@@ -648,7 +658,13 @@
     },
     "multiplier": {
       "name": "multiplier",
-      "description": "View a detailed breakdown of all multipliers."
+      "description": "View a detailed breakdown of all multipliers.",
+      "options": {
+        "user": {
+          "name": "user",
+          "description": "The user to view the multipliers of."
+        }
+      }
     },
     "leaderboard": {
       "name": "leaderboard",

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from bisect import bisect_left
 from datetime import datetime, timedelta
+from math import ceil
 from io import BytesIO
 from textwrap import dedent
 from typing import Any, Iterable, Literal, TYPE_CHECKING
@@ -15,22 +16,30 @@ from PIL import Image
 from app import Bot
 from app.core import BAD_ARGUMENT, Cog, Context, HybridContext, NO_EXTRA, REPLY, command, group, simple_cooldown
 from app.core.flags import Flags, flag, store_true
-from app.data.items import ItemType, Items, LEVEL_REWARDS
+from app.data.items import ItemRarity, ItemType, Item, Items, LEVEL_REWARDS
 from app.database import (
     InventoryManager,
     Multiplier,
     NotificationData,
     NotificationsManager,
     UserHistoryEntry,
-    UserRecord, aggregate_multipliers,
+    UserRecord,
+    aggregate_multipliers,
 )
 from app.extensions.transactions import query_item_type
 from app.util.common import converter, cutoff, humanize_duration, image_url_from_emoji, progress_bar
 from app.util.converters import CaseInsensitiveMemberConverter, IntervalConverter
 from app.util.graphs import send_graph_to
-from app.util.pagination import FieldBasedFormatter, Formatter, LineBasedFormatter, Paginator
+from app.util.pagination import (
+    FieldBasedFormatter,
+    Formatter,
+    LineBasedFormatter,
+    NavigableItem,
+    NavigationRow,
+    Paginator,
+)
 from app.util.structures import DottedDict
-from app.util.views import ModalButton, StaticCommandButton, invoke_command
+from app.util.views import ModalButton, StaticCommandButton, UserLayoutView, invoke_command
 from config import Colors, Emojis
 
 if TYPE_CHECKING:
@@ -181,21 +190,312 @@ class RefreshBalanceButton(discord.ui.Button):
 
 
 class RefreshInventoryButton(discord.ui.Button):
-    def __init__(self, ctx: Context, user: discord.User, inventory: InventoryManager, color: int) -> None:
-        super().__init__(style=discord.ButtonStyle.secondary, emoji=Emojis.refresh, row=1)
-        self.cog: Stats = ctx.cog  # type: ignore
+    def __init__(self, parent: InventoryContainer) -> None:
+        super().__init__(style=discord.ButtonStyle.secondary, emoji=Emojis.refresh)
+        self.parent = parent
+
+    async def callback(self, interaction: TypedInteraction) -> Any:
+        self.parent.update()
+        await interaction.response.edit_message(view=self.view)
+
+
+class InventorySortBy(discord.ui.Select['InventoryView']):
+    def __init__(self, parent: InventoryContainer) -> None:
+        super().__init__(
+            placeholder='Sort by...',
+            options=[
+                discord.SelectOption(label='Sort by Name (A-Z)', value='name', default=True),
+                discord.SelectOption(label='Sort by Individual Price', value='price'),
+                discord.SelectOption(label='Sort by Total Sell Value', value='sell'),
+                discord.SelectOption(label='Sort by Quantity Owned', value='quantity'),
+            ],
+        )
+        self.parent = parent
+
+    @property
+    def value(self) -> str:
+        if not self.values:
+            return 'name'
+        return self.values[0]
+
+    async def callback(self, interaction: TypedInteraction) -> Any:
+        self.parent.recompute_entries()
+        self.parent.update()
+        await interaction.response.edit_message(view=self.view)
+
+
+class InventoryFilterByRarity(discord.ui.Select['InventoryView']):
+    def __init__(self, parent: InventoryContainer) -> None:
+        super().__init__(
+            placeholder='Filter by rarity...',
+            options=[
+                discord.SelectOption(
+                    label=rarity.name.title(), value=rarity.name.lower(),
+                    emoji=rarity.emoji,
+                )
+                for rarity in ItemRarity
+            ],
+            min_values=0,
+            max_values=len(ItemRarity),
+        )
+        self.parent = parent
+
+    async def callback(self, interaction: TypedInteraction) -> Any:
+        self.parent.recompute_entries()
+        self.parent.update()
+        await interaction.response.edit_message(view=self.view)
+
+
+class InventoryFilterByType(discord.ui.Select['InventoryView']):
+    def __init__(self, parent: InventoryContainer) -> None:
+        super().__init__(
+            placeholder='Filter by type...',
+            options=[
+                discord.SelectOption(
+                    label=category.name.title(),
+                    value=category.name.lower(),
+                )
+                for category in ItemType
+            ],
+            min_values=0,
+            max_values=len(ItemType),
+        )
+        self.parent = parent
+
+    async def callback(self, interaction: TypedInteraction) -> Any:
+        self.parent.recompute_entries()
+        self.parent.update()
+        await interaction.response.edit_message(view=self.view)
+
+
+class InventoryFilterByFunction(discord.ui.Select['InventoryView']):
+    def __init__(self, parent: InventoryContainer) -> None:
+        super().__init__(
+            placeholder='Filter by function...',
+            options=[
+                discord.SelectOption(label='Buyable', value='buyable'),
+                discord.SelectOption(label='Sellable', value='sellable'),
+                discord.SelectOption(label='Usable', value='usable'),
+                discord.SelectOption(label='Giftable', value='giftable'),
+                discord.SelectOption(label='Disposable', value='removable'),
+            ],
+            min_values=0,
+            max_values=5,
+        )
+        self.parent = parent
+
+    async def callback(self, interaction: TypedInteraction) -> Any:
+        self.parent.recompute_entries()
+        self.parent.update()
+        await interaction.response.edit_message(view=self.view)
+
+
+class InventoryToggleRow(discord.ui.ActionRow['InventoryView']):
+    def __init__(self, parent: InventoryContainer) -> None:
+        super().__init__()
+        self.parent = parent
+
+    def update(self) -> None:
+        self.clear_items()
+        self.add_item(self.toggle_compact).add_item(self.toggle_filters)
+        if self.parent._show_filters:
+            self.add_item(self.clear_filters)
+
+    @discord.ui.button(label='Compact View')
+    async def toggle_compact(self, interaction: TypedInteraction, button: discord.ui.Button) -> Any:
+        self.parent._compact_view = not self.parent._compact_view
+        button.label = 'Cozy View' if self.parent._compact_view else 'Compact View'
+        self.parent.update()
+        await interaction.response.edit_message(view=self.view)
+
+    @discord.ui.button(label='Show Filters')
+    async def toggle_filters(self, interaction: TypedInteraction, button: discord.ui.Button) -> Any:
+        self.parent._show_filters = not self.parent._show_filters
+        button.label = 'Hide Filters' if self.parent._show_filters else 'Show Filters'
+        self.parent.update()
+        await interaction.response.edit_message(view=self.view)
+
+    @discord.ui.button(label='Clear Filters', style=discord.ButtonStyle.danger)
+    async def clear_filters(self, interaction: TypedInteraction, _) -> Any:
+        self.parent.reset_filters()
+        self.parent.recompute_entries()
+        self.parent.update()
+        await interaction.response.edit_message(view=self.view)
+
+
+class InventoryContainer(discord.ui.Container['InventoryView'], NavigableItem):
+    def __init__(self) -> None:
+        super().__init__(accent_color=Colors.primary)
+        self.reset_filters()
+
+        self._current_page = 0
+        self._show_filters = False
+        self._nav = NavigationRow(self)
+        self._toggle_row = InventoryToggleRow(self)
+        self._compact_view = False  # Whether to show a compact view of the inventory
+        self.entries: list[tuple[Item, int]] = []  # Ordered list of (item, quantity) tuples
+
+    def reset_filters(self) -> None:
+        self._sort_by = InventorySortBy(self)
+        self._filter_by_type = InventoryFilterByType(self)
+        self._filter_by_rarity = InventoryFilterByRarity(self)
+        self._filter_by_function = InventoryFilterByFunction(self)
+
+        self._filters: list[discord.ui.ActionRow] = [
+            discord.ui.ActionRow().add_item(item)
+            for item in (
+                self._sort_by,
+                self._filter_by_type,
+                self._filter_by_rarity,
+                self._filter_by_function,
+            )
+        ]
+
+    @property
+    def ctx(self) -> Context:
+        return self.view.ctx
+
+    @property
+    def user(self) -> discord.User:
+        return self.view.user
+
+    @property
+    def inventory(self) -> InventoryManager:
+        return self.view.inventory
+
+    @property
+    def current_page(self) -> int:
+        return self._current_page
+
+    @property
+    def per_page(self) -> int:
+        return 15 if self._compact_view else 6
+
+    @property
+    def max_pages(self) -> int:
+        return max(1, ceil(len(self.entries) / self.per_page))
+
+    @property
+    def inventory_worth(self) -> int:
+        return sum(item.price * quantity for item, quantity in self.inventory.cached.items())
+
+    @property
+    def unique_count(self) -> int:
+        return len(self.inventory.cached)
+
+    def recompute_entries(self) -> None:
+        match self._sort_by.value:
+            case 'name':
+                sort_predicate = lambda pair: pair[0].key.lower()
+            case 'price':
+                sort_predicate = lambda pair: -pair[0].price
+            case 'sell':
+                sort_predicate = lambda pair: -pair[0].sell * pair[1]
+            case 'quantity':
+                sort_predicate = lambda pair: -pair[1]
+            case _:
+                raise ValueError(f'Unknown sort by value: {self._sort_by.values[0]}')
+
+        filter_predicates = []
+        if self._filter_by_type.values:
+            filter_predicates.append(lambda item: item.type.name.lower() in self._filter_by_type.values)
+        if self._filter_by_rarity.values:
+            filter_predicates.append(lambda item: item.rarity.name.lower() in self._filter_by_rarity.values)
+        if self._filter_by_function.values:
+            filter_predicates.append(
+                lambda item: any(getattr(item, func) for func in self._filter_by_function.values)
+            )
+
+        self.entries = sorted(
+            (
+                (item, quantity) for item, quantity in self.inventory.cached.items()
+                if quantity > 0 and all(predicate(item) for predicate in filter_predicates)
+            ),
+            key=sort_predicate,
+        )
+
+        # this is in case the client refreshes
+        for select in (self._filter_by_type, self._filter_by_rarity, self._filter_by_function):
+            for option in select.options:
+                option.default = option.value in select.values
+
+    def get_page_entries(self) -> list[tuple[Item, int]]:
+        start = self._current_page * self.per_page
+        end = start + self.per_page
+        return self.entries[start:end]
+
+    async def set_page(self, interaction: TypedInteraction, page: int) -> Any:
+        self._current_page = page
+        self.update()
+        await interaction.response.edit_message(view=self.view)
+
+    def update(self) -> None:
+        self.clear_items()
+
+        self._current_page = min(self._current_page, self.max_pages - 1)
+        your_inventory = 'Your inventory' if self.user == self.ctx.author else f"{self.user.name}'s inventory"
+        you_own = 'you own' if self.user == self.ctx.author else 'they own'
+        self.add_item(discord.ui.Section(
+            f'## {self.user}\'s Inventory',
+            f'-# {your_inventory} is worth {Emojis.coin} **{self.inventory_worth:,}**.\n'
+            f'-# Additionally, {you_own} **{self.unique_count:,}** out of {len(list(Items.all())):,} unique items.',
+            accessory=RefreshInventoryButton(self),
+        ))
+        self.add_item(discord.ui.Separator(spacing=discord.SeparatorSpacing.large))
+
+        if not sum(self.inventory.cached.values()):
+            self.add_item(discord.ui.TextDisplay('You currently do not own any items. Maybe buy some?'))
+            return
+
+        entries = self.get_page_entries()
+        if not self.entries:
+            self.add_item(discord.ui.TextDisplay(
+                'You currently do not own any items that match the selected filters.'
+            ))
+        elif self._compact_view:
+            self.add_item(discord.ui.TextDisplay('\n'.join(
+                f'{item.get_display_name(bold=True)} \u2014 {quantity:,}' for item, quantity in entries
+            )))
+        else:
+            for i, (item, quantity) in enumerate(entries):
+                extra = (
+                    f'Sell all for {Emojis.coin} **{item.sell * quantity:,}**'
+                    if self._sort_by.value == 'sell'
+                    else f'Worth {Emojis.coin} **{item.price * quantity:,}**'
+                )
+                self.add_item(discord.ui.TextDisplay(
+                    f'{item.get_display_name(bold=True)} \u2014 {quantity:,}\n'
+                    f'\u2002{Emojis.Expansion.standalone} {extra}'
+                ))
+                if i < len(entries) - 1 or not self._show_filters:
+                    self.add_item(discord.ui.Separator(visible=False))
+
+        if self._show_filters:
+            self.add_item(discord.ui.Separator(spacing=discord.SeparatorSpacing.large))
+            for item in self._filters:
+                self.add_item(item)
+
+        self._toggle_row.update()
+        self.add_item(self._toggle_row)
+
+        self._nav.update()
+        if self.max_pages > 1:
+            self.add_item(discord.ui.Separator(spacing=discord.SeparatorSpacing.large)).add_item(self._nav)
+
+
+class InventoryView(UserLayoutView):
+    def __init__(self, ctx: Context, user: discord.User, inventory: InventoryManager) -> None:
+        super().__init__(ctx.author, timeout=300)
         self.ctx = ctx
         self.user = user
         self.inventory = inventory
-        self.color = color
 
-    async def callback(self, interaction: TypedInteraction) -> Any:
-        if interaction.user != self.ctx.author:
-            return await interaction.response.send_message(
-                'You cannot refresh someone else\'s inventory view.', ephemeral=True,
-            )
-        paginator = self.cog._refresh_inventory_paginator(self.ctx, self.user, self.inventory, self.color)
-        await paginator.start(edit=True, interaction=interaction)
+        self.add_item(container := InventoryContainer())
+        self.add_item(discord.ui.ActionRow().add_item(StaticCommandButton(
+            command=ctx.bot.get_command('shop'),
+            label='Go Shopping', style=discord.ButtonStyle.primary, emoji='\U0001f6d2',
+        )))
+        self.container = container
 
 
 class Stats(Cog):
@@ -427,52 +727,20 @@ class Stats(Cog):
         flags = DottedDict(is_global=is_global)
         await ctx.invoke(ctx.command, sort_by=sort_by, flags=flags)  # type: ignore
 
-    @staticmethod
-    def _refresh_inventory_paginator(
-        ctx: Context, user: discord.User, inventory: InventoryManager, color: int,
-    ) -> Paginator:
-        fields = [{
-            'name': f'{item.display_name} — **{quantity:,}**',
-            'value': f'Worth {Emojis.coin} **{item.price * quantity:,}**',
-            'inline': False,
-        } for item, quantity in inventory.cached.items() if quantity]
-
-        worth = sum(item.price * quantity for item, quantity in inventory.cached.items())
-
-        embed = discord.Embed(color=color, timestamp=ctx.now)
-        owner = 'you' if user == ctx.author else 'they'
-        embed.description = dedent(f"""
-            {'Your' if user == ctx.author else f"{user.name}'s"} inventory is worth {Emojis.coin} **{worth:,}**.
-            Additionally, {owner} own **{len(fields):,}** out of {len(list(Items.all())):,} unique items.
-        """)
-        embed.set_author(name=f'{user.name}\'s Inventory', icon_url=user.display_avatar)
-
-        go_shopping = StaticCommandButton(
-            command=ctx.bot.get_command('shop'),
-            label='Go Shopping', style=discord.ButtonStyle.primary, emoji='\U0001f6d2', row=1,
-        )
-        refresh = RefreshInventoryButton(ctx, user, inventory, color)
-        return Paginator(
-            ctx,
-            FieldBasedFormatter(embed, fields, per_page=5),
-            other_components=[go_shopping, refresh],
-            timeout=120,
-        )
-
     @command(aliases={"inv", "items"}, hybrid=True, with_app_command=False)
     @simple_cooldown(1, 6)
     async def inventory(self, ctx: Context, *, user: CaseInsensitiveMemberConverter | None = None):
         """View your inventory, or optionally, someone elses."""
         user = user or ctx.author
-
         record = await ctx.db.get_user_record(user.id)
         inventory = await record.inventory_manager.wait()
 
-        if all(not quantity for item, quantity in inventory.cached.items()):
-            return f'{"You currently do" if user == ctx.author else f"{user.name} currently does"} not own any items.', REPLY
+        view = InventoryView(ctx, user, inventory)
+        view.container.recompute_entries()
+        view.container.update()
 
-        paginator = self._refresh_inventory_paginator(ctx, user, inventory, Colors.primary)
-        return paginator, REPLY, NO_EXTRA if ctx.author != user else None
+        yield view, REPLY, NO_EXTRA
+        await view.wait()
 
     @inventory.define_app_command()
     @app_commands.describe(user='The user to view the inventory of.')

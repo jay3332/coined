@@ -6,7 +6,7 @@ from typing import Any, Collection, Generic, TYPE_CHECKING, TypeVar
 
 import discord
 from discord import ButtonStyle, Embed, File, Interaction
-from discord.ui import Button, Item, Modal, TextInput
+from discord.ui import ActionRow, Button, Item, Modal, TextInput
 
 from app.util.views import UserView
 from config import Emojis
@@ -358,3 +358,140 @@ class ActiveRow:
     async def active_update(self, paginator: Paginator, entry: T | list[T]) -> list[Item]:
         """Callback for when the paginator updates."""
         pass
+
+
+# Components V2
+
+class NavigableItem(ABC):
+    # Note: pages are zero-indexed, but max-pages is normal
+
+    @property
+    @abstractmethod
+    def max_pages(self) -> int:
+        """The maximum number of pages this item can have."""
+        raise NotImplementedError
+
+    @property
+    @abstractmethod
+    def current_page(self) -> int:
+        """The current page of this item."""
+        raise NotImplementedError
+
+    @abstractmethod
+    async def set_page(self, interaction: TypedInteraction, page: int) -> Any:
+        """Set the current page of this item."""
+        raise NotImplementedError
+
+
+class EntryNavigableItem(NavigableItem, ABC, Generic[T]):
+    def __init__(self, entries: list[T], *, per_page: int) -> None:
+        self.entries: list[T] = entries
+        self.per_page: int = per_page
+        self._current_page: int = 0
+
+    @property
+    def max_pages(self) -> int:
+        pages, extra = divmod(len(self.entries), self.per_page)
+        return max(1, pages + bool(extra))
+
+    @property
+    def current_page(self) -> int:
+        return self._current_page
+
+    def get_page_entries(self, page: int | None = None) -> list[T]:
+        """Get the entries for a specific page."""
+        page = page if page is not None else self._current_page
+        start = self.per_page * page
+        return self.entries[start:start + self.per_page]
+
+    async def set_page(self, interaction: TypedInteraction, page: int) -> Any:
+        if not (0 <= page < self.max_pages):
+            raise ValueError(f'Page number must be between 0 and {self.max_pages - 1}.')
+        self._current_page = page
+
+        entries = self.get_page_entries(page)
+        await self.set_entries(interaction, entries)
+
+    @abstractmethod
+    async def set_entries(self, interaction: TypedInteraction, entries: list[T]) -> None:
+        """Format the entries for display, and then respond to the interaction."""
+        raise NotImplementedError
+
+
+class JumpToPageModal(Modal, title='Jump to Page'):
+    page = TextInput(
+        label='Page Number',
+        placeholder='...',
+        min_length=1,
+        max_length=4,
+        required=True,
+        style=discord.TextStyle.short,
+    )
+
+    def __init__(self, row: NavigationRow) -> None:
+        super().__init__(title='Jump to Page')
+        self.row: NavigationRow = row
+        self.target: NavigableItem = row.target
+        self.update()
+
+    def update(self) -> None:
+        self.page.placeholder = f'Enter the page you want to jump to (1-{self.target.max_pages})'
+
+    async def on_submit(self, interaction: TypedInteraction, /) -> Any:
+        try:
+            page = int(self.page.value) - 1  # Convert to zero-indexed
+        except ValueError:
+            return await interaction.response.send_message(
+                'Invalid page number. Please enter a valid integer.', ephemeral=True,
+            )
+
+        if not (0 <= page < self.target.max_pages):
+            return await interaction.response.send_message(
+                f'Page number must be between 1 and {self.target.max_pages}.', ephemeral=True,
+            )
+
+        await self.target.set_page(interaction, page)
+
+
+class NavigationRow(ActionRow):
+    def __init__(self, target: NavigableItem) -> None:
+        super().__init__()
+        self.target: NavigableItem = target
+
+    def update(self) -> None:
+        self.clear_items()
+        need_ff = self.target.max_pages > 3  # Good enough threshold?
+
+        if need_ff:
+            self.add_item(self.first)
+            self.first.disabled = self.target.current_page == 0
+
+        self.previous.disabled = self.target.current_page == 0
+        self.next.disabled = self.target.current_page == self.target.max_pages - 1
+        self.jump.label = f'{self.target.current_page + 1}/{self.target.max_pages}'
+        self.add_item(self.previous).add_item(self.jump).add_item(self.next)
+
+        if need_ff:
+            self.add_item(self.last)
+            self.last.disabled = self.target.current_page == self.target.max_pages - 1
+
+    @discord.ui.button(emoji=Emojis.Arrows.first)
+    async def first(self, interaction: TypedInteraction, _) -> None:
+        await self.target.set_page(interaction, 0)
+
+    @discord.ui.button(emoji=Emojis.Arrows.previous)
+    async def previous(self, interaction: TypedInteraction, _) -> None:
+        await self.target.set_page(interaction, max(0, self.target.current_page - 1))
+
+    @discord.ui.button(style=discord.ButtonStyle.primary)
+    async def jump(self, interaction: TypedInteraction, _) -> None:
+        modal = JumpToPageModal(self)
+        await interaction.response.send_modal(modal)
+
+    @discord.ui.button(emoji=Emojis.Arrows.forward)
+    async def next(self, interaction: TypedInteraction, _) -> None:
+        await self.target.set_page(interaction, min(self.target.max_pages - 1, self.target.current_page + 1))
+
+    @discord.ui.button(emoji=Emojis.Arrows.last)
+    async def last(self, interaction: TypedInteraction, _) -> None:
+        await self.target.set_page(interaction, self.target.max_pages - 1)
