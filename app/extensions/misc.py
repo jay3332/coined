@@ -412,7 +412,7 @@ class Miscellaneous(Cog):
     async def settings_app_command(self, interaction: TypedInteraction) -> None:
         """View and modify your current user settings."""
         await interaction.response.send_message(view=SettingsView(
-            Context.from_interaction(interaction),
+            await Context.from_interaction(interaction),
             await self.bot.db.get_user_record(interaction.user.id),
         ))
 
@@ -424,7 +424,7 @@ class Miscellaneous(Cog):
     async def settings_set(self, interaction: TypedInteraction, setting: str, value: bool) -> None:
         """Change a specific setting to a new value."""
         setting = get_by_key(Settings, setting)
-        ctx = Context.from_interaction(interaction)
+        ctx = await Context.from_interaction(interaction)
         await ctx.invoke(self.settings, setting=setting, value=value)  # type: ignore
 
     MENTION_REGEX: re.Pattern[str] = re.compile(r'<@!?\d+>')
