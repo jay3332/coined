@@ -339,7 +339,7 @@ GUIDE_PAGES: dict[str, GuidePage] = {
     'feed': GuidePage(
         emoji='<:carrot:941096334365175839>',
         redirects={
-            'Begin Feeding': CommandRedirect('feed'),
+            'Begin Feeding': CommandRedirect('pets feed'),
             'Farming': PageRedirect('farming'),
         }
     ),

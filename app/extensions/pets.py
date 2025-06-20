@@ -285,7 +285,7 @@ class PetsCog(Cog, name='Pets'):
         )
         if entry.equipped:
             ratio = entry.energy / entry.max_energy
-            feed_mention = ctx.bot.tree.get_app_command('feed').mention
+            feed_mention = ctx.bot.tree.get_app_command('pets feed').mention
             embed.add_field(
                 name=(
                     f'{Emojis.bolt} **{entry.energy:,}**/{entry.max_energy:,} Energy'
@@ -324,7 +324,7 @@ class PetsCog(Cog, name='Pets'):
         view = discord.ui.View()
         if entry.equipped:
             view.add_item(StaticCommandButton(
-                command=self.feed,
+                command=self.pets_feed,  # type: ignore
                 command_kwargs=dict(pet=pet),
                 label='Feed',
                 emoji=Emojis.bolt,
@@ -388,7 +388,7 @@ class PetsCog(Cog, name='Pets'):
 
         ctx.bot.loop.create_task(ctx.thumbs())
         view = ui.View().add_item(StaticCommandButton(
-            command=self.feed,
+            command=self.pets_feed,  # type: ignore
             command_kwargs=dict(pet=pet),
             label='Feed this Pet',
             emoji=Emojis.bolt,
@@ -484,7 +484,7 @@ class PetsCog(Cog, name='Pets'):
 
     @command('feed', alias='fe', hidden=True)
     async def _legacy_feed(self, ctx: Context) -> CommandResponse:
-        return f'This command hash moved to `{ctx.clean_prefix}pets feed`.', BAD_ARGUMENT
+        return f'This command has moved to `{ctx.clean_prefix}pets feed`.', BAD_ARGUMENT
 
 
 def _format_level_data(record: PetRecord) -> str:
@@ -680,7 +680,7 @@ class ActivePetsContainer(ui.Container):
             ))
             self.add_item(ui.ActionRow().add_item(
                 StaticCommandButton(
-                    command=self.ctx.bot.get_command('feed'),
+                    command=self.ctx.bot.get_command('pets feed'),
                     command_kwargs=dict(pet=record.pet),
                     label='Feed',
                     emoji=Emojis.bolt,
