@@ -46,6 +46,14 @@ ANSI_REGEX: re.Pattern[str] = re.compile(r"\x1b\[\d{2};[01]m")
 EVERY_TWO_HOURS: list[time] = [time(hour) for hour in range(0, 24, 2)]
 
 
+# TODO remove this patch
+def _accent_colour_setter(self: discord.ui.Container, value: int | discord.Colour | None) -> None:
+    self._colour = value
+
+
+discord.ui.Container.accent_colour = property(lambda self: self._colour, _accent_colour_setter)
+
+
 class TrackingKeepAliveHandler(gateway.KeepAliveHandler):
     def __init__(self, *args: Any, **kwargs: Any):
         super().__init__(*args, **kwargs)
