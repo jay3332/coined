@@ -1,0 +1,2 @@
+ALTER TABLE quests
+    ADD COLUMN reroll_number SMALLINT NOT NULL DEFAULT 0;

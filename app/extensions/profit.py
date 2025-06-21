@@ -2322,23 +2322,49 @@ class RefreshQuestsButton(discord.ui.Button['QuestsView']):
 
 
 class RerollQuestButton(discord.ui.Button['QuestsView']):
-    def __init__(self, container: QuestsContainer, slot: QuestSlot, *, disabled: bool) -> None:
+    def __init__(self, container: QuestsContainer, slot: QuestSlot) -> None:
         assert slot is not QuestSlot.vote
 
-        super().__init__(label='Reroll', disabled=disabled)
         self.container: QuestsContainer = container
         self.slot: QuestSlot = slot
 
-    async def callback(self, interaction: TypedInteraction) -> None:
-        async with self.container.ctx.db.acquire() as conn:
-            if quest := self.container.quests.get_active_quest_for_slot(self.slot):
-                await quest.delete(connection=conn)
+        self.quest: QuestRecord = self.container.quests.get_active_quest_for_slot(self.slot)
+        assert self.quest is not None, 'There should be an active quest for this slot'
+        self.price = 0 if self.container.view.record.quest_rerolls_remaining > 0 else self.quest.reroll_price
 
-            await self.view.record.add(quest_rerolls_remaining=-1, connection=conn)
-            await self.view.record.update(last_quest_reroll_update=discord.utils.utcnow(), connection=conn)
+        super().__init__(label='Reroll')
+        if self.price:
+            self.style = discord.ButtonStyle.success
+            self.emoji = Emojis.coin
+            self.label = f'Reroll ({self.price:,} coins)'
+
+    async def callback(self, interaction: TypedInteraction):
+        if self.price and self.view.record.wallet < self.price:
+            return await interaction.response.send_message(
+                f'You need {Emojis.coin} **{self.price:,}** to reroll this quest, but you only have '
+                f'{Emojis.coin} **{self.view.record.wallet:,}**.',
+                ephemeral=True,
+            )
+
+        async with self.container.ctx.db.acquire() as conn:
+            await self.quest.delete(connection=conn)
+
+            if self.price:
+                self.container.quests._pending_rerolls[self.slot] = self.quest.reroll_number + 1
+                await self.view.record.add(wallet=-self.price, connection=conn)
+            else:
+                await self.view.record.add(quest_rerolls_remaining=-1, connection=conn)
+                await self.view.record.update(last_quest_reroll_update=discord.utils.utcnow(), connection=conn)
 
         await self.container.update()
         await interaction.response.edit_message(view=self.view)
+
+        if self.price:
+            await interaction.followup.send(
+                f'Rerolled the quest for {Emojis.coin} **{self.price:,}**.\n'
+                f'{Emojis.Expansion.standalone} You now have {Emojis.coin} **{self.view.record.wallet:,}**',
+                ephemeral=True,
+            )
 
 
 class QuestsContainer(discord.ui.Container['QuestsView']):
@@ -2370,8 +2396,8 @@ class QuestsContainer(discord.ui.Container['QuestsView']):
         quest_rerolls_remaining = await self.view.record.update_quest_rerolls_remaining()
         s = '' if quest_rerolls_remaining == 1 else 's'
         self.add_item(discord.ui.TextDisplay(
-            f'-# You have {quest_rerolls_remaining} quest reroll{s} remaining.\n'
-            f'-# {Emojis.Expansion.standalone} Quest rerolls replenish {format_dt(next_weekday_utc_midnight(weekday=0), "R")}',
+            f'-# You have {quest_rerolls_remaining} free quest reroll{s} remaining.\n'
+            f'-# {Emojis.Expansion.standalone} Quest rerolls reset {format_dt(next_weekday_utc_midnight(weekday=0), "R")}',
         ))
         self.add_item(discord.ui.Separator(spacing=discord.SeparatorSpacing.large))
 
@@ -2392,7 +2418,7 @@ class QuestsContainer(discord.ui.Container['QuestsView']):
                 if entry.expires_at:
                     exp.append(f'Expires {format_dt(entry.expires_at, "R")}')
                 if entry.quest.slot is not QuestSlot.vote:
-                    accessory = RerollQuestButton(self, entry.quest.slot, disabled=quest_rerolls_remaining <= 0)
+                    accessory = RerollQuestButton(self, entry.quest.slot)
             else:
                 recent = self.quests.get_most_recent_quest_for_slot(entry.slot)
                 if not recent:

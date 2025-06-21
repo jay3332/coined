@@ -1375,6 +1375,7 @@ class QuestRecord:
     progress: int
     completed_at: datetime.datetime | None = None
     expires_at: datetime.datetime | None = None
+    reroll_number: int = 0
 
     @property
     def is_completed(self) -> bool:
@@ -1390,6 +1391,20 @@ class QuestRecord:
     def is_active(self) -> bool:
         """Returns whether the quest is currently active."""
         return not self.is_completed and not self.is_expired
+
+    @property
+    def reroll_price(self) -> int:
+        slot = self.quest.slot
+        assert slot is not QuestSlot.vote
+        match slot:
+            case QuestSlot.recurring_easy:
+                return 2_000 * 2 ** self.reroll_number
+            case QuestSlot.recurring_mid:
+                return 7_000 * 2 ** self.reroll_number
+            case QuestSlot.recurring_hard:
+                return 20_000 * 2 ** self.reroll_number
+            case QuestSlot.daily_1 | QuestSlot.daily_2:
+                return 5_000 * 2 ** self.reroll_number
 
     async def add_progress(
         self,
@@ -1480,6 +1495,7 @@ class QuestRecord:
             progress=record['progress'],
             completed_at=record['completed_at'],
             expires_at=record['expires_at'],
+            reroll_number=record.get('reroll_number', 0),
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -1492,6 +1508,7 @@ class QuestRecord:
             'progress': self.progress,
             'completed_at': self.completed_at,
             'expires_at': self.expires_at,
+            'reroll_number': self.reroll_number,
         }
 
     async def delete(self, *, connection: asyncpg.Connection | None = None) -> None:
@@ -1525,6 +1542,7 @@ class QuestManager:
     def __init__(self, record: UserRecord) -> None:
         self.record = record
         self.cached: deque[QuestRecord] = deque()
+        self._pending_rerolls: dict[QuestSlot, int] = {}
         self._task = record.db.bot.loop.create_task(self.fetch())
 
     @property
@@ -1561,11 +1579,17 @@ class QuestManager:
             record = await self.generate_quest(slot)
         return record
 
-    async def _register_quest(self, quest: Quest, *, expires_at: datetime.datetime | None = None) -> QuestRecord:
+    async def _register_quest(
+        self,
+        quest: Quest,
+        *,
+        expires_at: datetime.datetime | None = None,
+        reroll_number: int = 0,
+    ) -> QuestRecord:
         """Registers a new quest in the database."""
         query = """
-                INSERT INTO quests (user_id, template_key, type, arg, extra, expires_at)
-                VALUES ($1, $2, $3, $4, $5, $6)
+                INSERT INTO quests (user_id, template_key, type, arg, extra, expires_at, reroll_number)
+                VALUES ($1, $2, $3, $4, $5, $6, $7)
                 RETURNING *;
                 """
         record = await self.record.db.fetchrow(
@@ -1576,6 +1600,7 @@ class QuestManager:
             quest.arg,
             quest.extra,
             expires_at,
+            reroll_number,
         )
         record = QuestRecord.from_record(self, record)
         self.cached.appendleft(record)
@@ -1665,7 +1690,8 @@ class QuestManager:
                     expiry = None
                     break
 
-        record = await self._register_quest(quest, expires_at=expiry)
+        rerolls = self._pending_rerolls.get(slot, 0)
+        record = await self._register_quest(quest, expires_at=expiry, reroll_number=rerolls)
         await template.setup(quest)
         return record
 
@@ -1684,6 +1710,13 @@ class QuestManager:
         records = await self.record.db.fetch(query, self.record.user_id)
         self.cached = deque(QuestRecord.from_record(self, record) for record in records)
         await self.refresh_slots()
+
+    async def reset_rerolls(self) -> None:
+        await self.wait()
+        query = 'UPDATE quests SET reroll_number = 0 WHERE user_id = $1 AND reroll_number > 0'
+        await self.record.db.execute(query, self.record.user_id)
+        for quest in self.cached:
+            quest.reroll_number = 0
 
 
 class UserPremiumType(IntEnum):
@@ -2317,6 +2350,7 @@ class UserRecord(BaseRecord):
             now >= next_weekday_utc_midnight(self.last_quest_reroll_update, weekday=0)
         ):
             await self.update(last_quest_reroll_update=now, quest_rerolls_remaining=DEFAULT_MAX_REROLLS)
+            await self.quest_manager.reset_rerolls()
             return self.quest_rerolls_remaining
 
         return self.quest_rerolls_remaining
