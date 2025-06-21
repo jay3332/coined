@@ -13,3 +13,5 @@ Receive notifications via your direct messages by enabling DM notifications! `.s
 Customize your Coined experience by tweaking your settings: {{/settings view}}.
 Complete your quests and advance your quest pass to unlock exclusive rewards! {{/quests view}}
 Use Coined in a server with at least 50 members for an extra EXP boost!
+Spin the wheel for a chance win free items and boosts! {{/spin-the-wheel}}
+Have pets? Remember to feed them regularly to keep their boosts active! {{/pets feed}}

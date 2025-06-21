@@ -15,6 +15,7 @@ time you use them.
 - {{/daily}} – Claim at least <:coin:896432147152400394> **5,000** every 24 hours.
 - {{/weekly}} – Claim at least <:coin:896432147152400394> **20,000** every week.
 - {{/vote}} – Vote for Coined on top.gg for free crates and items.
+- {{/spin-the-wheel}} - Spin the wheel for a chance to win coins, items, and more. Resets every 6 hours.
 
 ## 💵 Low-risk Profit Commands (Fundamental Grinding Commands)
 
@@ -27,6 +28,7 @@ risky areas at the reward of more possible coins.
 - {{/hunt}} – Hunt for pets. See *Pets* for more information on pets and hunting.
 - {{/work start}} – Find a job and start working for a steady salary. See *Work and Jobs* for more information on \
 working and the job system.
+- {{/dig}} - See the next section
 
 ## <:shovel:1376356818258759751> Digging and Mining System
 

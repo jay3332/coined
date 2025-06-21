@@ -2237,9 +2237,14 @@ class Reward(NamedTuple):
         return humanize_list(self.chunks) or 'N/A'
 
     @property
+    def principal_item(self) -> Item | None:
+        if self.items:
+            return max(self.items, key=lambda item: item.price)
+
+    @property
     def principal_emoji(self) -> str:
         if self.items:
-            return max(self.items, key=lambda item: item.price).emoji
+            return self.principal_item.emoji
         if self.coins > 0:
             return Emojis.coin
         return Emojis.space

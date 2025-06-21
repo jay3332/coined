@@ -27,27 +27,27 @@ if TYPE_CHECKING:
 
 WHEEL_RESET_INTERVAL: timedelta = timedelta(hours=6)
 COIN_REWARDS: dict[int, int] = {
-    500: 100,
-    1000: 100,
-    5000: 70,
+    500: 80,
+    1000: 80,
+    5000: 80,
     10000: 40,
     15000: 20,
-    20000: 5,
-    50000: 2,
-    100000: 1,
+    20000: 10,
+    50000: 4,
+    100000: 2,
 }
 CRATE_REWARDS: dict[Item, int] = {
-    Items.common_crate: 100,
+    Items.common_crate: 80,
     Items.uncommon_crate: 80,
     Items.rare_crate: 50,
     Items.epic_crate: 20,
-    Items.legendary_crate: 5,
-    Items.mythic_crate: 1,
+    Items.legendary_crate: 7,
+    Items.mythic_crate: 2,
 }
 ITEM_REWARDS: dict[Item, int | float] = {
-    Items.key: 100,
-    Items.banknote: 100,
-    Items.dynamite: 100,
+    Items.key: 80,
+    Items.banknote: 80,
+    Items.dynamite: 80,
     Items.cheese: 70,
     Items.fishing_pole: 40,
     Items.jar_of_honey: 40,
@@ -61,7 +61,7 @@ ITEM_REWARDS: dict[Item, int | float] = {
     Items.diamond_pickaxe: 1,
     Items.diamond_shovel: 1,
     Items.spinning_coin: 1,
-    Items.plasma_shovel: 0.1,
+    Items.plasma_shovel: 0.2,
     Items.meth: 0.01,
 }
 
@@ -380,8 +380,6 @@ class WheelView(UserLayoutView):
         self.record: UserRecord = record
         self.wheel: Wheel = Wheel()
         self.total_reward: Reward = Reward()
-        self.roll_rewards()
-
         self.container = WheelContainer(self.wheel)
         self.add_item(self.container)
 
@@ -395,12 +393,13 @@ class WheelView(UserLayoutView):
 
     async def reroll(self) -> None:
         self.roll_rewards()
+        await self.record.set_wheel_rewards(self.rewards)
         await self.wheel.prepare(self.rewards, self.ctx.bot.session)
 
     async def prepare(self) -> None:
-        await self.wheel.prepare(self.rewards, self.ctx.bot.session)
         if self.record.wheel_resets_at is None:
             await self.record.update(wheel_resets_at=self.ctx.now + WHEEL_RESET_INTERVAL)
+            await self.reroll()
         elif self.record.wheel_resets_at < self.ctx.now:
             expiry = self.record.wheel_resets_at + WHEEL_RESET_INTERVAL
             while discord.utils.utcnow() >= expiry:
@@ -410,5 +409,11 @@ class WheelView(UserLayoutView):
                 wheel_spins_this_cycle=0,
                 redeemed_vote_wheel_spin=False,
             )
+            await self.reroll()
+        elif not self.record.wheel_rewards:
+            await self.reroll()
+        else:
+            self.rewards = self.record.wheel_rewards
+            await self.wheel.prepare(self.rewards, self.ctx.bot.session)
 
         await self.container.update()

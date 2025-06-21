@@ -2288,6 +2288,20 @@ class UserRecord(BaseRecord):
         return self.data['redeemed_vote_wheel_spin']
 
     @property
+    def wheel_rewards(self) -> list[Reward] | None:
+        if rewards := self.data.get('wheel_rewards'):
+            return [
+                Reward(coins=int(r)) if r.isdigit() else Reward(items={get_by_key(Items, r): 1})
+                for r in rewards
+            ]
+
+    async def set_wheel_rewards(self, rewards: list[Reward]) -> None:
+        await self.update(wheel_rewards=[
+            str(reward.coins) if reward.coins else reward.principal_item.key
+            for reward in rewards
+        ])
+
+    @property
     def quest_rerolls_remaining(self) -> int:
         return self.data['quest_rerolls_remaining']
 
