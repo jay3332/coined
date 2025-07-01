@@ -569,7 +569,7 @@ class Stats(Cog):
         data = await ctx.db.get_user_record(user.id)
 
         embed = discord.Embed(color=Colors.primary, timestamp=ctx.now)
-        embed.set_author(name=f"Level: {user}", icon_url=user.avatar.url)
+        embed.set_author(name=f"Level: {user}", icon_url=user.display_avatar.url)
 
         level, exp, requirement = data.level_data
         extra = ''
