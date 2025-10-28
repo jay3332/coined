@@ -102,8 +102,8 @@ class Colors:
 
 
 class DatabaseConfig:
-    name: str = 'dank_ripoff_remastered'
-    user: str | None = None if beta else 'postgres'
+    name: str = 'dank_ripoff_remastered' if beta else 'coined'
+    user: str | None = None if beta else 'jay3332'
     host: str | None = 'localhost'
     port: int | None = None
     password: str | None = None if beta else env('DATABASE_PASSWORD')
