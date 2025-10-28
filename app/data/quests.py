@@ -1222,6 +1222,8 @@ QUEST_PASS_REWARDS: list[Reward] = [
 
 
 def reward_for_achieving_tier(tier: int, /) -> Reward:
-    if 1 <= tier <= len(QUEST_PASS_REWARDS):
-        return QUEST_PASS_REWARDS[tier - 1]
-    return Reward()
+    if tier < 1:
+        return Reward()
+    if tier > len(QUEST_PASS_REWARDS):
+        return Reward(items={Items.mythic_crate: 1})
+    return QUEST_PASS_REWARDS[tier - 1]

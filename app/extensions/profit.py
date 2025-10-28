@@ -2447,7 +2447,7 @@ class QuestsContainer(discord.ui.Container['QuestsView']):
             f'### Quest Pass',
             f'{Emojis.quest_pass} **Tier {tier}**\n'
             f'{Emojis.Expansion.first} {Emojis.ticket} {progress_bar(n / d, provider=Emojis.RedProgressBars)} {n:,}/{d:,}\n'
-            f'{Emojis.Expansion.last} {QUEST_PASS_REWARDS[tier].short} at next tier',
+            f'{Emojis.Expansion.last} {reward_for_achieving_tier(tier + 1).short} at next tier',
             accessory=StaticCommandButton(
                 command=self.ctx.bot.get_command('quests pass'),
                 label='Quest Pass',
@@ -2517,7 +2517,7 @@ class QuestPassContainer(discord.ui.Container['QuestPassView'], NavigableItem):
         self.add_item(discord.ui.TextDisplay(
             f'{Emojis.quest_pass} **Tier {tier}**\n'
             f'{Emojis.Expansion.first} {Emojis.ticket} {progress_bar(n / d, provider=Emojis.RedProgressBars)} {n:,}/{d:,}\n'
-            f'{Emojis.Expansion.last} Next tier reward: {QUEST_PASS_REWARDS[tier].short}'
+            f'{Emojis.Expansion.last} Next tier reward: {reward_for_achieving_tier(tier + 1).short}'
         )).add_item(large_sep())
 
         for i, reward in enumerate(
